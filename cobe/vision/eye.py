@@ -10,6 +10,7 @@ They
 """
 from Pyro5.api import expose, behavior, serve, oneway
 from numpy import random
+import argparse
 
 
 @behavior(instance_mode="single")
@@ -44,6 +45,19 @@ class CoBeEye(object):
 
 def main(host="localhost", port=9090):
     """Starts the Pyro5 daemon exposing the CoBeEye class"""
+    # Parse command line arguments if called from the command line
+    args = argparse.ArgumentParser(description="Starts the Pyro5 daemon exposing the CoBeEye class")
+
+    # adding optional help message to the arguments
+    ahost = args.add_argument("--host", default=None, help="Host address to use for the Pyro5 daemon")
+    aport = args.add_argument("--port", default=None, help="Port to use for the Pyro5 daemon")
+    args = args.parse_args()
+    if args.host is not None:
+        host = args.host
+    if args.port is not None:
+        port = int(args.port)
+
+    # Start the daemon
     serve({CoBeEye: "cobe.eye"},
           use_ns=False,
           host=host,
