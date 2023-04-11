@@ -26,6 +26,7 @@ class CoBeEye(object):
     def _return_secret_id(self):
         """This is not exposed to the network"""
         print(f"This is private! My secret id is {self.secret_id}")
+        return self.secret_id
 
     @expose
     def return_id(self):
@@ -41,9 +42,12 @@ class CoBeEye(object):
         self.id += 2
 
 
-def main():
+def main(host="localhost", port=9090):
+    """Starts the Pyro5 daemon exposing the CoBeEye class"""
     serve({CoBeEye: "cobe.eye"},
-          use_ns=False)
+          use_ns=False,
+          host=host,
+          port=port)
 
 
 if __name__ == "__main__":
