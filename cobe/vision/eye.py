@@ -10,6 +10,7 @@ They
 """
 import argparse
 import os
+import subprocess
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.settings import vision as visset
@@ -48,7 +49,9 @@ class CoBeEye(object):
     def start_inference_server(self, nano_password):
         """Starts the roboflow inference server via docker."""
         command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
-        pid = os.system('echo %s|sudo -S %s' % (nano_password, command))
+        # calling command with os.system and saving the resulting  STD output in string variable
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
+        print("Inference server started with pid ", pid)
         self.inference_server_id = pid
         return pid
 
@@ -62,6 +65,7 @@ class CoBeEye(object):
 
         command = "docker stop " + str(self.inference_server_id)
         pid = os.system('echo %s|sudo -S %s' % (nano_password, command))
+        print("Inference server stopped with pid ", pid)
         return pid
 
     @expose
