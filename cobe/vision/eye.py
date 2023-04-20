@@ -43,6 +43,8 @@ class CoBeEye(object):
         # self.detector_model.predict(None)
         print("Object detector initialized for eye ", self.id)
 
+    @oneway
+    @expose
     def start_inference_server(self, nano_password):
         """Starts the roboflow inference server via docker."""
         command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
@@ -50,6 +52,8 @@ class CoBeEye(object):
         self.inference_server_id = pid
         return pid
 
+    @oneway
+    @expose
     def stop_inference_server(self, nano_password):
         """Stops the roboflow inference server via docker."""
         if self.inference_server_id is None:
