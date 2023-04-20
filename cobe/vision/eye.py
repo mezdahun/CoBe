@@ -11,6 +11,10 @@ They
 from Pyro5.api import expose, behavior, serve, oneway
 from numpy import random
 import argparse
+import roboflow
+from roboflow.models.object_detection import ObjectDetectionModel
+from cobe.settings import vision as visset
+import os
 
 
 @behavior(instance_mode="single")
@@ -21,26 +25,18 @@ class CoBeEye(object):
     def __init__(self):
         # Mimicking initialization of eye using e.g. environment parameters or
         # other setting files distributed before
-        self.id = random.randint(low=1, high=999)
-        self.secret_id = self.id * 5
-
-    def _return_secret_id(self):
-        """This is not exposed to the network"""
-        print(f"This is private! My secret id is {self.secret_id}")
-        return self.secret_id
+        self.id = os.getenv("EYE_ID", 0)
+        # self.detector_model = ObjectDetectionModel(api_key=visset.api_key,
+        #                                            name=visset.model_name,
+        #                                            id=visset.model_id,
+        #                                            local=visset.inf_server_IP,
+        #                                            version=visset.version)
 
     @expose
     def return_id(self):
         """This is exposed on the network and can have a return value"""
         print(f"This is reachable via Pyro! My id is {self.id}")
         return self.id
-
-    @expose
-    @oneway
-    def recalculate_id(self):
-        """This is exposed on the network, but can be called only one-way,
-         and has no return value"""
-        self.id += 2
 
 
 def main(host="localhost", port=9090):

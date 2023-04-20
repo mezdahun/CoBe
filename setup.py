@@ -11,7 +11,7 @@ setup(
     maintainer='David Mezey, David James and Palina Bartashevich @ SCIoI',
     packages=find_packages(exclude=['tests']),
     package_data={'cobe': ['*.txt']},
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     install_requires=[
         'Pyro5',
         'msgpack',
