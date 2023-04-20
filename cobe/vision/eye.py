@@ -27,6 +27,7 @@ class CoBeEye(object):
         self.id = os.getenv("EYE_ID", 0)
         self.local_ip = get_local_ip_address()
         self.detector_model = None
+        self.inference_server_id = None
 
     @oneway
     @expose
@@ -41,6 +42,23 @@ class CoBeEye(object):
         # Carry out a single prediction to initialize the model weights
         # self.detector_model.predict(None)
         print("Object detector initialized for eye ", self.id)
+
+    def start_inference_server(self, nano_password):
+        """Starts the roboflow inference server via docker."""
+        command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
+        pid = os.system('echo %s|sudo -S %s' % (nano_password, command))
+        self.inference_server_id = pid
+        return pid
+
+    def stop_inference_server(self, nano_password):
+        """Stops the roboflow inference server via docker."""
+        if self.inference_server_id is None:
+            print("Inference server not running. Nothing to stop!")
+            return None
+
+        command = "docker stop " + str(self.inference_server_id)
+        pid = os.system('echo %s|sudo -S %s' % (nano_password, command))
+        return pid
 
     @expose
     def return_id(self):
