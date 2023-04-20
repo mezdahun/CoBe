@@ -78,6 +78,32 @@ class CoBeEye(object):
         print(f"This is reachable via Pyro! My id is {self.id}")
         return self.id
 
+    def read_model_parameters(self):
+        """Reading internal parameters of the initialized ObjectDetection Model"""
+        # fill self.OD_model_parameters dictionary with parameters
+        pass
+
+    def get_frame(self):
+        """getting single camera frame, according to the OD model"""
+        # getting single frame according to self.OD_model_parameters parameters using the opencv module
+        pass
+
+    @expose
+    def get_calibration_frame(self):
+        """calibrating the camera by returning a single high resolution image to CoBe main node"""
+        # getting single frame in high resolution
+        # pickling data
+        # returning image data
+        pass
+
+    @expose
+    def inference(self):
+        """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
+        # getting single frame according to self.OD_model_parameters parameters using the opencv module
+        # carrying out inference on the edge
+        # returning bounding box coordinates
+        pass
+
 
 def main(host="localhost", port=9090):
     """Starts the Pyro5 daemon exposing the CoBeEye class"""
