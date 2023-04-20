@@ -13,7 +13,6 @@ import os
 import subprocess
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
-from cobe.settings import vision as visset
 from cobe.tools.iptools import get_local_ip_address
 
 
@@ -25,9 +24,13 @@ class CoBeEye(object):
     def __init__(self):
         # Mimicking initialization of eye using e.g. environment parameters or
         # other setting files distributed before
+        # ID of the Nano module
         self.id = os.getenv("EYE_ID", 0)
+        # IP address of the Nano module in the local network
         self.local_ip = get_local_ip_address()
+        # ObjectDetectionModel instance to carry out predictions on a roboflow server
         self.detector_model = None
+        # Docker ID of the roboflow inference server running on the Nano module
         self.inference_server_id = None
 
     @oneway
@@ -41,6 +44,7 @@ class CoBeEye(object):
                                                    local=inf_server_url,
                                                    version=version)
         # Carry out a single prediction to initialize the model weights
+        # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
         print("Object detector initialized for eye ", self.id)
 
@@ -64,7 +68,7 @@ class CoBeEye(object):
             return None
 
         command = "docker stop " + str(self.inference_server_id)
-        pid = os.system('echo %s|sudo -S %s' % (nano_password, command))
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
         print("Inference server stopped with pid ", pid)
         return pid
 
