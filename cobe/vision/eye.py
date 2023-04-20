@@ -13,7 +13,7 @@ import os
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.settings import vision as visset
-from cobe.tools import get_local_ip_address
+from cobe.tools.iptools import get_local_ip_address
 
 
 @behavior(instance_mode="single")
