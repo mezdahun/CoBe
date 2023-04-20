@@ -8,13 +8,12 @@ They
     - can communicate with a triton server and carry out inference on the edge when requested
     - return bounding box coordinates
 """
-from Pyro5.api import expose, behavior, serve, oneway
-from numpy import random
 import argparse
-import roboflow
+import os
+from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.settings import vision as visset
-import os
+from cobe.tools import get_local_ip_address
 
 
 @behavior(instance_mode="single")
@@ -26,11 +25,22 @@ class CoBeEye(object):
         # Mimicking initialization of eye using e.g. environment parameters or
         # other setting files distributed before
         self.id = os.getenv("EYE_ID", 0)
-        # self.detector_model = ObjectDetectionModel(api_key=visset.api_key,
-        #                                            name=visset.model_name,
-        #                                            id=visset.model_id,
-        #                                            local=visset.inf_server_IP,
-        #                                            version=visset.version)
+        self.local_ip = get_local_ip_address()
+        self.detector_model = None
+
+    @oneway
+    @expose
+    def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
+        """Initialize the object detection model with desired model parameters"""
+        # Definign the object detection model instance
+        self.detector_model = ObjectDetectionModel(api_key=api_key,
+                                                   name=model_name,
+                                                   id=model_id,
+                                                   local=inf_server_url,
+                                                   version=version)
+        # Carry out a single prediction to initialize the model weights
+        # self.detector_model.predict(None)
+        print("Object detector initialized for eye ", self.id)
 
     @expose
     def return_id(self):
