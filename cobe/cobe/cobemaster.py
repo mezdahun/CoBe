@@ -15,6 +15,7 @@ They
 import numpy as np
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel
+from time import sleep
 
 
 class CoBeMaster(object):
@@ -29,6 +30,7 @@ class CoBeMaster(object):
         # calculating mapping matrices for each eye (as given matrix in the self.eyes dict)
         self.calculate_calibration_maps()
         # initializing object detectors on eyes
+        self.nano_password = input("To start inference server on Nano, please enter the admin password:")
         self.initialize_object_detectors()
         # at this point eyes are read for traffic
 
@@ -54,6 +56,13 @@ class CoBeMaster(object):
         """Starting the roboflow inference servers on all the eyes and carry out a single detection to initialize
         the model weights. This needs WWW access on the eyes as it downloads model weights from Roboflow"""
         for eye_name, eye_dict in self.eyes.items():
+            # start docker servers
+            eye_dict["pyro_proxy"].start_inference_server(self.nano_password)
+            # waiting for server to start
+            sleep(2)
+
+        for eye_name, eye_dict in self.eyes.items():
+            # carry out a single detection to initialize the model weights
             eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
                                                name=odmodel.model_name,
                                                id=odmodel.model_id,
