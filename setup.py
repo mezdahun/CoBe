@@ -26,13 +26,16 @@ setup(
         ]
     },
     entry_points={
-        'console_scripts': ["cobe-eye-start=cobe.vision.eye:main"]
+        'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
+                            "cobe_master_start=cobe.app:main"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
         'Operating System :: Other OS',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8'
     ],
     test_suite='tests',
