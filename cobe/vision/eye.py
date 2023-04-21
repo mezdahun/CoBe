@@ -99,10 +99,9 @@ class CoBeEye(object):
     @expose
     def inference(self):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
-        # getting single frame according to self.OD_model_parameters parameters using the opencv module
-        # carrying out inference on the edge
-        # returning bounding box coordinates
-        pass
+        frame = self.get_frame()
+        detections = self.detector_model.predict(frame)
+        return detections
 
 
 def main(host="localhost", port=9090):
