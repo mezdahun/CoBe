@@ -11,8 +11,6 @@ They
     - can pass final coordinate results to the projection stack via Unity
 
 """
-import pickle
-
 import numpy as np
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel
@@ -77,7 +75,7 @@ class CoBeMaster(object):
         # while True:
         # get inference results from eyes
         for eye_name, eye_dict in self.eyes.items():
-            for frid in range(100):
+            for frid in range(3):
                 img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
                 # print(img_ser)
                 # deserialize image from list to numpy array
@@ -100,6 +98,9 @@ class CoBeMaster(object):
         for eye_name, eye_dict in self.eyes.items():
             # stop docker servers
             eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+            # waiting for docker to stop the container
+            sleep(2)
+            eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
 
 
