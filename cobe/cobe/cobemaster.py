@@ -11,6 +11,7 @@ They
     - can pass final coordinate results to the projection stack via Unity
 
 """
+import pickle
 
 import numpy as np
 from Pyro5.api import Proxy
@@ -75,16 +76,20 @@ class CoBeMaster(object):
         while True:
             # get inference results from eyes
             for eye_name, eye_dict in self.eyes.items():
-                eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
-            # remap inference results according to calibration matrices
-            for eye_name, eye_dict in self.eyes.items():
-                eye_dict["remapped_inference_results"] = self.calibrator.remap_inference_results(
-                    eye_dict["inference_results"], eye_dict["calibration_map"])
-            # call Pmodule and consume results
-            self.call_pmodule()
-            agent_coordinates = self.consume_pmodule_results()
-            # pass final results to projection stack via Unity
-            self.pass_results_to_projection_stack(agent_coordinates)
+                img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
+                # deserialize image to numpy array
+                img = pickle.loads(img_ser)
+                print(img.shape, t)
+            #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
+            # # remap inference results according to calibration matrices
+            # for eye_name, eye_dict in self.eyes.items():
+            #     eye_dict["remapped_inference_results"] = self.calibrator.remap_inference_results(
+            #         eye_dict["inference_results"], eye_dict["calibration_map"])
+            # # call Pmodule and consume results
+            # self.call_pmodule()
+            # agent_coordinates = self.consume_pmodule_results()
+            # # pass final results to projection stack via Unity
+            # self.pass_results_to_projection_stack(agent_coordinates)
 
 
 class CoBeCalib(object):
