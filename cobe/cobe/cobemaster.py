@@ -73,13 +73,17 @@ class CoBeMaster(object):
     def start(self):
         """Starts the main action loop of the CoBe project"""
         # main action loop
-        while True:
-            # get inference results from eyes
-            for eye_name, eye_dict in self.eyes.items():
-                img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
-                # deserialize image from list to numpy array
-                img = img_ser.fromlist(img_ser)
-                print(img.shape, t)
+        # while True:
+        # get inference results from eyes
+        for eye_name, eye_dict in self.eyes.items():
+            for frid in range(10):
+                # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
+                # # print(img_ser)
+                # # deserialize image from list to numpy array
+                # img = np.asarray(img_ser)
+                # print(f"Captured frame {frid}", img.shape, t)
+                # test dictironary return latency
+                print(eye_dict["pyro_proxy"].test_dict_return_latency())
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices
             # for eye_name, eye_dict in self.eyes.items():
@@ -90,6 +94,11 @@ class CoBeMaster(object):
             # agent_coordinates = self.consume_pmodule_results()
             # # pass final results to projection stack via Unity
             # self.pass_results_to_projection_stack(agent_coordinates)
+
+        for eye_name, eye_dict in self.eyes.items():
+            # stop docker servers
+            eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+
 
 
 class CoBeCalib(object):
