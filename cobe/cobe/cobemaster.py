@@ -77,8 +77,8 @@ class CoBeMaster(object):
             # get inference results from eyes
             for eye_name, eye_dict in self.eyes.items():
                 img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
-                # deserialize image to numpy array
-                img = pickle.loads(img_ser)
+                # deserialize image from list to numpy array
+                img = img_ser.fromlist(img_ser)
                 print(img.shape, t)
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices
