@@ -36,7 +36,7 @@ def gstreamer_pipeline(
             "nvvidconv flip-method=%d ! "
             "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
             "videoconvert ! "
-            "video/x-raw, format=(string)BGR ! appsink"
+            "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
             % (
                 capture_width,
                 capture_height,
@@ -130,6 +130,7 @@ class CoBeEye(object):
         # set capture timestamp
         t_cap = datetime.datetime.now()
         ret_val, img = self.cap.read()
+        print(img)
         # serializing numpy.ndarray to list
         img_ser = img.tolist()
         # returning image data
