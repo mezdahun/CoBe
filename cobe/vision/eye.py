@@ -142,9 +142,9 @@ class CoBeEye(object):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
         # getting single frame in high resolution
         # set capture timestamp
+        print("Calibration frame requested")
         t_cap = datetime.datetime.now()
         ret_val, img = self.cap.read()
-        print(img)
         # serializing numpy.ndarray to list
         img_ser = img.tolist()
         # returning image data
