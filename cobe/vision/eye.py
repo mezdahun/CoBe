@@ -123,7 +123,6 @@ class CoBeEye(object):
         # getting single frame according to self.OD_model_parameters parameters using the opencv module
         pass
 
-    @expose
     def get_calibration_frame(self):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
         # getting single frame in high resolution
@@ -138,6 +137,7 @@ class CoBeEye(object):
         # returning image data
         return img_ser, t_cap
 
+    @expose
     def test_dict_return_latency(self):
         """Testing return latency of dictionaries via Pyro5"""
         test_dict = {"test": "test"}
