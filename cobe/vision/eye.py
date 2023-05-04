@@ -11,6 +11,8 @@ They
 import argparse
 import datetime
 import os
+import pickle
+
 import cv2
 import subprocess
 from Pyro5.api import expose, behavior, serve, oneway
@@ -128,11 +130,13 @@ class CoBeEye(object):
         # set capture timestamp
         t_cap = datetime.datetime.now()
         ret_val, img = self.cap.read()
+        # serializing numpy.ndarray to string
+        img_ser = pickle.dumps(img)
         # # resize
         # img = cv2.resize(imgo, (320, 320))
         # # pickling data
         # returning image data
-        return img, t_cap
+        return img_ser, t_cap
 
     @expose
     def inference(self):
