@@ -130,8 +130,8 @@ class CoBeEye(object):
         # set capture timestamp
         t_cap = datetime.datetime.now()
         ret_val, img = self.cap.read()
-        # serializing numpy.ndarray to string
-        img_ser = pickle.dumps(img)
+        # serializing numpy.ndarray to list
+        img_ser = img.tolist()
         # # resize
         # img = cv2.resize(imgo, (320, 320))
         # # pickling data
