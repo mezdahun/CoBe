@@ -107,6 +107,20 @@ class CoBeEye(object):
         print("Inference server stopped with pid ", pid)
         return pid
 
+    @oneway
+    @expose
+    def remove_inference_server(self, nano_password):
+        """Removes the roboflow inference server via docker."""
+        if self.inference_server_id is None:
+            print("Inference server not running. Nothing to stop!")
+            return None
+
+        command = "docker rm " + str(self.inference_server_id)
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
+        print("Inference server removed with pid ", pid)
+        self.inference_server_id = None
+        return pid
+
     @expose
     def return_id(self):
         """This is exposed on the network and can have a return value"""
