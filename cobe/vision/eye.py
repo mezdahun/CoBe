@@ -123,6 +123,7 @@ class CoBeEye(object):
         # getting single frame according to self.OD_model_parameters parameters using the opencv module
         pass
 
+    @expose
     def get_calibration_frame(self):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
         # getting single frame in high resolution
@@ -131,9 +132,6 @@ class CoBeEye(object):
         ret_val, img = self.cap.read()
         # serializing numpy.ndarray to list
         img_ser = img.tolist()
-        # # resize
-        # img = cv2.resize(imgo, (320, 320))
-        # # pickling data
         # returning image data
         return img_ser, t_cap
 

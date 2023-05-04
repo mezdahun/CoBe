@@ -17,6 +17,7 @@ import numpy as np
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel
 from time import sleep
+import matplotlib.pyplot as plt
 
 
 class CoBeMaster(object):
@@ -76,14 +77,15 @@ class CoBeMaster(object):
         # while True:
         # get inference results from eyes
         for eye_name, eye_dict in self.eyes.items():
-            for frid in range(10):
-                # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
-                # # print(img_ser)
-                # # deserialize image from list to numpy array
-                # img = np.asarray(img_ser)
-                # print(f"Captured frame {frid}", img.shape, t)
-                # test dictironary return latency
-                print(eye_dict["pyro_proxy"].test_dict_return_latency())
+            for frid in range(100):
+                img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
+                # print(img_ser)
+                # deserialize image from list to numpy array
+                img = np.asarray(img_ser)
+                print(f"Captured frame {frid}", img.shape, t)
+                plt.imshow(img)
+                plt.show()
+
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices
             # for eye_name, eye_dict in self.eyes.items():
