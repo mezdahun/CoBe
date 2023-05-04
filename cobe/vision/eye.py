@@ -138,6 +138,11 @@ class CoBeEye(object):
         # returning image data
         return img_ser, t_cap
 
+    def test_dict_return_latency(self):
+        """Testing return latency of dictionaries via Pyro5"""
+        test_dict = {"test": "test"}
+        return test_dict, datetime.datetime.now()
+
     @expose
     def inference(self):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
