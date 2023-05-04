@@ -9,11 +9,41 @@ They
     - return bounding box coordinates
 """
 import argparse
+import datetime
 import os
+import cv2
 import subprocess
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
+
+
+def gstreamer_pipeline(
+        capture_width=320,
+        capture_height=200,
+        display_width=320,
+        display_height=200,
+        framerate=30,
+        flip_method=0,
+):
+    return (
+            "nvarguscamerasrc ! "
+            "video/x-raw(memory:NVMM), "
+            "width=(int)%d, height=(int)%d, "
+            "format=(string)NV12, framerate=(fraction)%d/1 ! "
+            "nvvidconv flip-method=%d ! "
+            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
+            "videoconvert ! "
+            "video/x-raw, format=(string)BGR ! appsink"
+            % (
+                capture_width,
+                capture_height,
+                framerate,
+                flip_method,
+                display_width,
+                display_height,
+            )
+    )
 
 
 @behavior(instance_mode="single")
@@ -32,6 +62,9 @@ class CoBeEye(object):
         self.detector_model = None
         # Docker ID of the roboflow inference server running on the Nano module
         self.inference_server_id = None
+        # Starting cv2 capture stream from camera
+        # print(gstreamer_pipeline(flip_method=0))
+        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
 
     @oneway
     @expose
@@ -92,9 +125,14 @@ class CoBeEye(object):
     def get_calibration_frame(self):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
         # getting single frame in high resolution
-        # pickling data
+        # set capture timestamp
+        t_cap = datetime.datetime.now()
+        ret_val, img = self.cap.read()
+        # # resize
+        # img = cv2.resize(imgo, (320, 320))
+        # # pickling data
         # returning image data
-        pass
+        return img, t_cap
 
     @expose
     def inference(self):
