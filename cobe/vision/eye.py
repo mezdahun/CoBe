@@ -180,10 +180,10 @@ class CoBeEye(object):
                                                  # stroke=1,
                                                  # labels=False, )
         preds = detections.json().get("predictions")
+        for pred in preds:
+            pred["image_path"] = pred["image_path"].tolist()
         print(preds)
         print(preds.type)
-        if isinstance(preds, np.ndarray):
-            preds = preds.tolist()
         return preds
 
 
