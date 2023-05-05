@@ -61,6 +61,8 @@ class CoBeMaster(object):
             # waiting for server to start
             sleep(2)
 
+        print("Waiting for servers to start...")
+        sleep(10)
         for eye_name, eye_dict in self.eyes.items():
             # carry out a single detection to initialize the model weights
             print(odmodel.api_key, odmodel.model_name, odmodel.model_id, odmodel.inf_server_url, odmodel.version)
@@ -76,7 +78,6 @@ class CoBeMaster(object):
         # while True:
         # get inference results from eyes
         # self.initialize_object_detectors()
-        sleep(2)
         for eye_name, eye_dict in self.eyes.items():
             for frid in range(3):
                 # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
