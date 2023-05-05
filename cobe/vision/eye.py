@@ -80,6 +80,7 @@ class CoBeEye(object):
         address = (self.local_ip, port)
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
         self.streaming_server.des_res = (int(vision.capture_width/2), int(vision.capture_height/2))
+        self.streaming_server.eye_id = self.id
         threading.Thread(target=self.streaming_server.serve_forever).start()
 
 
