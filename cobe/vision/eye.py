@@ -50,6 +50,7 @@ def gstreamer_pipeline(
 
 
 @behavior(instance_mode="single")
+@expose
 class CoBeEye(object):
     """Class serving as input generator of CoBe running on nVidia boards to carry out
     object detection on the edge and forward detection coordinates via Pyro5"""
