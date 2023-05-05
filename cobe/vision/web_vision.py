@@ -46,7 +46,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             try:
                 while True:
                     if self.server.frame is not None:
-                        jpg = Image.fromarray(cv2.resize(cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB), self.server.des_res).astype('uint8'))
+                        jpg = Image.fromarray(cv2.resize(cv2.cvtColor(self.server.frame, cv2.COLOR_BGR2RGB), self.server.des_res).astype('uint8'))
                         buf = io.BytesIO()
                         jpg.save(buf, format='JPEG')
                         frame_n = buf.getvalue()
