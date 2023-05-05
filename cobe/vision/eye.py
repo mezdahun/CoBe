@@ -182,8 +182,7 @@ class CoBeEye(object):
         preds = detections.json().get("predictions")
         for pred in preds:
             del pred["image_path"]
-        if preds != []:
-            detections.save("test_"+str(t_cap)+".jpg")
+        detections.save("test_"+str(t_cap)+".jpg")
         return preds
 
 
