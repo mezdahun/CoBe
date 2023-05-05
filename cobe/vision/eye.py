@@ -184,7 +184,7 @@ class CoBeEye(object):
             del pred["image_path"]
         print(preds)
         print(preds.type)
-        return preds
+        return preds, t_cap
 
 
 def main(host="localhost", port=9090):
