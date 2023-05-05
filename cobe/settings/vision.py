@@ -6,3 +6,9 @@ import os
 # model_name = os.getenv("OD_MODEL_NAME", "default")
 # model_id = os.getenv("OD_MODEL_ID", "/default")
 # version = os.getenv("OD_VERSION", "1")
+
+### Camera stream settings ###
+flip_method = os.getenv("FLIP_METHOD", 0)
+capture_width = os.getenv("CAPTURE_WIDTH", 640)
+capture_height = os.getenv("CAPTURE_HEIGHT", 480)
+frame_rate = os.getenv("FRAME_RATE", 30)
