@@ -142,9 +142,9 @@ class CoBeEye(object):
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
         # resizing image to requested w and h
-        img = cv2.resize(imgo, (img_width, img_height))
+        # img = cv2.resize(imgo, (img_width, img_height))
         # returning image and timestamp
-        return img, t_cap
+        return imgo, t_cap
 
     @expose
     def get_calibration_frame(self):
@@ -166,6 +166,7 @@ class CoBeEye(object):
     def inference(self):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
+        print(img.shape)
         detections = self.detector_model.predict(img)  #,
                                                  # hosted=True,
                                                  # format=None,
@@ -174,6 +175,7 @@ class CoBeEye(object):
                                                  # confidence=40,
                                                  # stroke=1,
                                                  # labels=False, )
+        print(detections.json())
         return detections.json()
 
 
