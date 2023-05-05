@@ -181,7 +181,7 @@ class CoBeEye(object):
                                                  # labels=False, )
         preds = detections.json().get("predictions")
         for pred in preds:
-            del pred["image_path"]
+            pred["image_path"] = pred["image_path"].tolist()
         print(preds)
         return preds
 
