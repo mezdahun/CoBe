@@ -62,14 +62,15 @@ class CoBeMaster(object):
             sleep(2)
 
         print("Waiting for servers to start...")
-        sleep(10)
+        sleep(4)
         for eye_name, eye_dict in self.eyes.items():
             # carry out a single detection to initialize the model weights
+            print(f"Initializing model on {eye_name}. Model parameters:")
             print(odmodel.api_key, odmodel.model_name, odmodel.model_id, odmodel.inf_server_url, odmodel.version)
             eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
-                                               name=odmodel.model_name,
-                                               id=odmodel.model_id,
-                                               local=odmodel.inf_server_url,
+                                               model_name=odmodel.model_name,
+                                               model_id=odmodel.model_id,
+                                               inf_server_url=odmodel.inf_server_url,
                                                version=odmodel.version)
 
     def start(self):
@@ -87,7 +88,7 @@ class CoBeMaster(object):
                 # print(f"Captured frame {frid}", img.shape, t)
                 # plt.imshow(img)
                 # plt.show()
-                detections = eye_dict["pyro_proxy"].inference()
+                detections = eye_dict["pyro_proxy"].inference(confidence=20)
                 print(detections)
 
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
