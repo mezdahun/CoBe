@@ -174,8 +174,7 @@ class CoBeEye(object):
                                                  # confidence=40,
                                                  # stroke=1,
                                                  # labels=False, )
-        print(detections)
-        return detections
+        return detections.json()
 
 
 def main(host="localhost", port=9090):
