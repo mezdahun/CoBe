@@ -13,6 +13,7 @@ import datetime
 import cv2
 import os
 import subprocess
+import threading
 
 import numpy as np
 from Pyro5.api import expose, behavior, serve, oneway
@@ -79,7 +80,8 @@ class CoBeEye(object):
         address = (self.local_ip, port)
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
         self.streaming_server.des_res = (vision.capture_width/2, vision.capture_height/2)
-        self.streaming_server.serve_forever()
+        threading.Thread(target=self.streaming_server.serve_forever).start()
+
 
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
