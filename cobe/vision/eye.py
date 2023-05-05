@@ -79,7 +79,7 @@ class CoBeEye(object):
         """Sets up a streaming server for the image data from the camera"""
         address = (self.local_ip, port)
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
-        self.streaming_server.des_res = (vision.capture_width/2, vision.capture_height/2)
+        self.streaming_server.des_res = (int(vision.capture_width/2), int(vision.capture_height/2))
         threading.Thread(target=self.streaming_server.serve_forever).start()
 
 
