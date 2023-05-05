@@ -72,6 +72,7 @@ class CoBeEye(object):
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
+        print("Initializing OD Model")
         # Definign the object detection model instance
         self.detector_model = ObjectDetectionModel(api_key=api_key,
                                                    name=model_name,
