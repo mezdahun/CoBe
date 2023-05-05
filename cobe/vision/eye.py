@@ -68,7 +68,6 @@ class CoBeEye(object):
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
 
-    @oneway
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
