@@ -63,6 +63,7 @@ class CoBeMaster(object):
 
         for eye_name, eye_dict in self.eyes.items():
             # carry out a single detection to initialize the model weights
+            print(odmodel.api_key, odmodel.model_name, odmodel.model_id, odmodel.inf_server_url, odmodel.version)
             eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
                                                name=odmodel.model_name,
                                                id=odmodel.model_id,
@@ -74,15 +75,19 @@ class CoBeMaster(object):
         # main action loop
         # while True:
         # get inference results from eyes
+        # self.initialize_object_detectors()
+        sleep(2)
         for eye_name, eye_dict in self.eyes.items():
             for frid in range(3):
-                img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
-                # print(img_ser)
-                # deserialize image from list to numpy array
-                img = np.asarray(img_ser)
-                print(f"Captured frame {frid}", img.shape, t)
-                plt.imshow(img)
-                plt.show()
+                # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
+                # # print(img_ser)
+                # # deserialize image from list to numpy array
+                # img = np.asarray(img_ser)
+                # print(f"Captured frame {frid}", img.shape, t)
+                # plt.imshow(img)
+                # plt.show()
+                detections = eye_dict["pyro_proxy"].inference()
+                print(detections)
 
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices

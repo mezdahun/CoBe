@@ -78,10 +78,12 @@ class CoBeEye(object):
                                                    id=model_id,
                                                    local=inf_server_url,
                                                    version=version)
+        print(api_key, model_name, inf_server_url, model_id, version)
         # Carry out a single prediction to initialize the model weights
         # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
         print("Object detector initialized for eye ", self.id)
+        print(self.detector_model)
 
     @oneway
     @expose
