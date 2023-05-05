@@ -7,18 +7,6 @@ import logging
 import cv2
 import numpy as np
 
-PAGE = """\
-<html>
-<head>
-<title>CoBe Eye - Stream</title>
-</head>
-<body>
-<center><h1>CoBe Eye - Stream</h1></center>
-<center><img src="stream.mjpg" width="640" height="480"></center>
-</body>
-</html>
-"""
-
 class StreamingHandler(server.BaseHTTPRequestHandler):
     def do_GET(self):
         global frame
@@ -27,7 +15,18 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header('Location', '/index.html')
             self.end_headers()
         elif self.path == '/index.html':
-            content = PAGE.encode('utf-8')
+            content = """\
+                    <html>
+                    <head>
+                    <title>CoBe Eye - Stream</title>
+                    </head>
+                    <body>
+                    <center><h1>CoBe Eye id: """ + str(self.server.eye_id) + """ - Stream</h1></center>
+                    <center><img src="stream.mjpg" width="640" height="480"></center>
+                    </body>
+                    </html>
+                    """
+            content = content.encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.send_header('Content-Length', len(content))
@@ -71,5 +70,9 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
     def __init__(self, x, y):
         super(StreamingServer, self).__init__(x, y)
+        # frame to attach to mJPG stream
         self.frame = None
+        # desired resolution of the stream
         self.des_res = None
+        # id of the CoBeEye to stream
+        self.eye_id = None
