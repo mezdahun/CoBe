@@ -165,24 +165,22 @@ class CoBeEye(object):
         return test_dict, datetime.datetime.now()
 
     @expose
-    def inference(self):
+    def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
         # print(img.shape)
         # print(img.dtype)
         # print(img[:10, :10, :])
-        detections = self.detector_model.predict(img)  #,
+        detections = self.detector_model.predict(img, confidence=confidence)  #,
                                                  # hosted=True,
                                                  # format=None,
                                                  # classes=None,
                                                  # overlap=30,
-                                                 # confidence=40,
                                                  # stroke=1,
                                                  # labels=False, )
         preds = detections.json().get("predictions")
         for pred in preds:
-            del pred["image_path"]
-        detections.save("test_"+str(t_cap)+".jpg")
+            pred["image_path"] = pred["image_path"][::2, ::2, 0].tolist()
         return preds
 
 
