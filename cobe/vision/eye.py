@@ -10,24 +10,25 @@ They
 """
 import argparse
 import datetime
-import os
-import pickle
-
 import cv2
+import os
 import subprocess
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
+from cobe.settings import vision
 
 
 def gstreamer_pipeline(
-        capture_width=320,
-        capture_height=200,
-        display_width=320,
-        display_height=200,
-        framerate=30,
-        flip_method=0,
+        capture_width=vision.capture_width,
+        capture_height=vision.capture_height,
+        display_width=vision.capture_width,
+        display_height=vision.capture_height,
+        framerate=vision.frame_rate,
+        flip_method=vision.flip_method,
 ):
+    """Returns a GStreamer pipeline string to start stream with the CSI camera
+    on nVidia Jetson Nano"""
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
@@ -65,8 +66,7 @@ class CoBeEye(object):
         # Docker ID of the roboflow inference server running on the Nano module
         self.inference_server_id = None
         # Starting cv2 capture stream from camera
-        # print(gstreamer_pipeline(flip_method=0))
-        self.cap = cv2.VideoCapture(gstreamer_pipeline(flip_method=0), cv2.CAP_GSTREAMER)
+        self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
 
     @oneway
     @expose
@@ -99,7 +99,7 @@ class CoBeEye(object):
     def stop_inference_server(self, nano_password):
         """Stops the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not running. Nothing to stop!")
+            print("Inference server not found. Nothing to stop!")
             return None
 
         command = "docker stop " + str(self.inference_server_id)
@@ -112,7 +112,7 @@ class CoBeEye(object):
     def remove_inference_server(self, nano_password):
         """Removes the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not running. Nothing to stop!")
+            print("Inference server not found. Nothing to remove!")
             return None
 
         command = "docker rm " + str(self.inference_server_id)
@@ -124,7 +124,7 @@ class CoBeEye(object):
     @expose
     def return_id(self):
         """This is exposed on the network and can have a return value"""
-        print(f"This is reachable via Pyro! My id is {self.id}")
+        print(f"ID requested and returned: {self.id}")
         return self.id
 
     def read_model_parameters(self):
@@ -132,22 +132,25 @@ class CoBeEye(object):
         # fill self.OD_model_parameters dictionary with parameters
         pass
 
-    def get_frame(self):
-        """getting single camera frame, according to the OD model"""
-        # getting single frame according to self.OD_model_parameters parameters using the opencv module
-        pass
+    def get_frame(self, img_width, img_height):
+        """getting single camera frame according to stream parameters and resizing it to desired dimensions"""
+        t_cap = datetime.datetime.now()
+        print("Taking single frame")
+        # getting single frame in high resolution
+        ret_val, imgo = self.cap.read()
+        # resizing image to requested w and h
+        img = cv2.resize(imgo, (img_width, img_height))
+        # returning image and timestamp
+        return img, t_cap
 
     @expose
     def get_calibration_frame(self):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
-        # getting single frame in high resolution
-        # set capture timestamp
-        print("Calibration frame requested")
-        t_cap = datetime.datetime.now()
-        ret_val, img = self.cap.read()
+        # taking single image with max possible resolution given the GStreamer pipeline
+        img, t_cap = self.get_frame(img_width=vision.capture_width, img_height=vision.capture_height)
         # serializing numpy.ndarray to list
         img_ser = img.tolist()
-        # returning image data
+        # returning serialized image data via Pyro5
         return img_ser, t_cap
 
     @expose
@@ -159,8 +162,16 @@ class CoBeEye(object):
     @expose
     def inference(self):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
-        frame = self.get_frame()
-        detections = self.detector_model.predict(frame)
+        img, t_cap = self.get_frame(img_width=320, img_height=200)
+        detections = self.detector_model.predict(img)  #,
+                                                 # hosted=True,
+                                                 # format=None,
+                                                 # classes=None,
+                                                 # overlap=30,
+                                                 # confidence=40,
+                                                 # stroke=1,
+                                                 # labels=False, )
+        print(detections)
         return detections
 
 
