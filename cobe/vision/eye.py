@@ -84,7 +84,7 @@ class CoBeEye(object):
         # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
         print("Object detector initialized for eye ", self.id)
-        print(self.detector_model)
+        print(self.detector_model.api_url)
 
     @oneway
     @expose
