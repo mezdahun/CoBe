@@ -180,6 +180,8 @@ class CoBeEye(object):
                                                  # stroke=1,
                                                  # labels=False, )
         preds = detections.json().get("predictions")
+        print(preds)
+        print(preds.type)
         if isinstance(preds, np.ndarray):
             preds = preds.tolist()
         return preds
