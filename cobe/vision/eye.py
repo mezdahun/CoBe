@@ -13,6 +13,8 @@ import datetime
 import cv2
 import os
 import subprocess
+
+import numpy as np
 from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
@@ -177,7 +179,10 @@ class CoBeEye(object):
                                                  # confidence=40,
                                                  # stroke=1,
                                                  # labels=False, )
-        return detections.json().get("predictions")
+        preds = detections.json().get("predictions")
+        if isinstance(preds, np.ndarray):
+            preds = preds.tolist()
+        return preds
 
 
 def main(host="localhost", port=9090):
