@@ -19,6 +19,7 @@ from Pyro5.api import expose, behavior, serve, oneway
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
 from cobe.settings import vision
+from cobe.vision import web_vision
 
 
 def gstreamer_pipeline(
@@ -70,6 +71,14 @@ class CoBeEye(object):
         self.inference_server_id = None
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
+        # creating streaming server for image data
+        self.setup_streaming_server()
+
+    def setup_streaming_server(self):
+        """Sets up a streaming server for the image data from the camera"""
+        self.streaming_server = web_vision.StreamingServer(self.local_ip, 8000)
+        self.streaming_server.des_res = (vision.capture_width/2, vision.capture_height/2)
+        self.streaming_server.serve_forever()
 
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
@@ -168,6 +177,7 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
+        self.streaming_server.frame = img
         # print(img.shape)
         # print(img.dtype)
         # print(img[:10, :10, :])
@@ -180,7 +190,7 @@ class CoBeEye(object):
                                                  # labels=False, )
         preds = detections.json().get("predictions")
         for pred in preds:
-            pred["image_path"] = pred["image_path"][::2, ::2, 0].tolist()
+            del pred["image_path"]
         return preds
 
 
