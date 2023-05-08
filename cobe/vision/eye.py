@@ -94,7 +94,7 @@ class CoBeEye(object):
                                                    id=model_id,
                                                    local=inf_server_url,
                                                    version=version)
-        print(api_key, model_name, inf_server_url, model_id, version)
+        print(model_name, inf_server_url, model_id, version)
         # Carry out a single prediction to initialize the model weights
         # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
@@ -181,7 +181,6 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
-        self.streaming_server.frame = img
         detections = self.detector_model.predict(img, confidence=confidence)  #,
                                                  # hosted=True,
                                                  # format=None,
@@ -192,8 +191,25 @@ class CoBeEye(object):
         preds = detections.json().get("predictions")
         for pred in preds:
             del pred["image_path"]
+        self.streaming_server.frame = self.annotate_detections(img, preds)
         print("Inference done")
         return preds
+
+    def annotate_detections(self, img, preds):
+        """Annotating the image with bounding boxes and labels"""
+        for pred in preds:
+            # getting bounding box coordinates
+            xmin = pred["x"]
+            xmax = xmin + pred["width"]
+            ymin = pred["y"]
+            ymax = ymin + pred["height"]
+            # getting label
+            label = pred["label"] + " " + str(round(pred["confidence"], 2))
+            # drawing bounding box
+            cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+            # adding label
+            cv2.putText(img, label, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+        return img
 
 
 def main(host="localhost", port=9090):
