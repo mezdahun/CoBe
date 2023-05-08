@@ -7,6 +7,7 @@ import logging
 import cv2
 import numpy as np
 
+
 class StreamingHandler(server.BaseHTTPRequestHandler):
     def do_GET(self):
         global frame
@@ -45,13 +46,14 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             try:
                 while True:
                     if self.server.frame is not None:
-                        jpg = Image.fromarray(cv2.resize(cv2.cvtColor(self.server.frame, cv2.COLOR_BGR2RGB), self.server.des_res).astype('uint8'))
+                        jpg = Image.fromarray(
+                            cv2.resize(cv2.cvtColor(self.server.frame, cv2.COLOR_BGR2RGB), self.server.des_res).astype(
+                                'uint8'))
                         buf = io.BytesIO()
                         jpg.save(buf, format='JPEG')
                         frame_n = buf.getvalue()
                         self.wfile.write(b'--FRAME\r\n')
                         self.send_header('Content-Type', 'image/jpeg')
-                        # self.send_header('Content-Length', len(frame_n))
                         self.end_headers()
                         self.wfile.write(frame_n)
                         self.wfile.write(b'\r\n')
@@ -63,6 +65,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
         else:
             self.send_error(404)
             self.end_headers()
+
 
 class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
