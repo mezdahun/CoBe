@@ -73,9 +73,12 @@ class CoBeEye(object):
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
         # creating streaming server for image data
-        self.setup_streaming_server()
+        self.streaming_server = None
+        if vision.publish_mjpeg_stream:
+            self.setup_streaming_server()
 
-    def setup_streaming_server(self, port=8000):
+
+    def setup_streaming_server(self, port=vision.mjpeg_stream_port):
         """Sets up a streaming server for the image data from the camera"""
         address = (self.local_ip, port)
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
@@ -192,9 +195,14 @@ class CoBeEye(object):
                                                  # stroke=1,
                                                  # labels=False, )
         preds = detections.json().get("predictions")
+
+        # removing image path from predictions
         for pred in preds:
             del pred["image_path"]
-        self.streaming_server.frame = self.annotate_detections(img, preds)
+
+        # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
+        if self.streaming_server is not None:
+            self.streaming_server.frame = self.annotate_detections(img, preds)
         print("Inference done")
         return preds
 

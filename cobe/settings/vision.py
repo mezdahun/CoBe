@@ -12,3 +12,7 @@ flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 640)
 capture_height = os.getenv("CAPTURE_HEIGHT", 480)
 frame_rate = os.getenv("FRAME_RATE", 5)
+
+### Published MJPEG stream settings ###
+publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", False)
+mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
