@@ -204,9 +204,9 @@ class CoBeEye(object):
             # getting bounding box coordinates
             print(img.shape)
             xmin = max(int(pred["x"] - (pred["width"]/2)), 0)
-            xmax = min(int(xmin + (pred["width"]/2)), img.shape[1])
+            xmax = min(int(xmin + pred["width"]), img.shape[1])
             ymin = max(int(pred["y"] - (pred["height"]/2)), 0)
-            ymax = min(int(ymin + (pred["height"]/2)), img.shape[0])
+            ymax = min(int(ymin + pred["height"]), img.shape[0])
             # getting label
             label = pred["class"] + " " + str(round(pred["confidence"], 2))
             # drawing bounding box
