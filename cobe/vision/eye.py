@@ -207,7 +207,7 @@ class CoBeEye(object):
             ymin = pred["y"]
             ymax = ymin + pred["height"]
             # getting label
-            label = pred["label"] + " " + str(round(pred["confidence"], 2))
+            label = pred["class"] + " " + str(round(pred["confidence"], 2))
             # drawing bounding box
             cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
             # adding label
