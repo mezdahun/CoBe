@@ -73,7 +73,7 @@ class CoBeEye(object):
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
         # creating streaming server for image data
-        self.pubish_mjpeg_stream = vision.publish_mjpeg_stream
+        self.publish_mjpeg_stream = vision.publish_mjpeg_stream
         self.streaming_server = None
         if self.publish_mjpeg_stream:
             self.setup_streaming_server()
