@@ -73,19 +73,18 @@ class CoBeEye(object):
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
         # creating streaming server for image data
+        self.pubish_mjpeg_stream = vision.publish_mjpeg_stream
         self.streaming_server = None
-        if vision.publish_mjpeg_stream:
+        if self.publish_mjpeg_stream:
             self.setup_streaming_server()
-
 
     def setup_streaming_server(self, port=vision.mjpeg_stream_port):
         """Sets up a streaming server for the image data from the camera"""
         address = (self.local_ip, port)
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
-        self.streaming_server.des_res = (int(vision.capture_width/2), int(vision.capture_height/2))
+        self.streaming_server.des_res = (int(vision.capture_width / 2), int(vision.capture_height / 2))
         self.streaming_server.eye_id = self.id
         threading.Thread(target=self.streaming_server.serve_forever).start()
-
 
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
@@ -187,13 +186,13 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
-        detections = self.detector_model.predict(img, confidence=confidence)  #,
-                                                 # hosted=True,
-                                                 # format=None,
-                                                 # classes=None,
-                                                 # overlap=30,
-                                                 # stroke=1,
-                                                 # labels=False, )
+        detections = self.detector_model.predict(img, confidence=confidence)  # ,
+        # hosted=True,
+        # format=None,
+        # classes=None,
+        # overlap=30,
+        # stroke=1,
+        # labels=False, )
         preds = detections.json().get("predictions")
 
         # removing image path from predictions
@@ -201,8 +200,11 @@ class CoBeEye(object):
             del pred["image_path"]
 
         # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
-        if self.streaming_server is not None:
+        if self.pubish_mjpeg_stream:
+            if self.streaming_server is None:
+                self.setup_streaming_server()
             self.streaming_server.frame = self.annotate_detections(img, preds)
+
         print("Inference done")
         return preds
 
@@ -211,9 +213,9 @@ class CoBeEye(object):
         for pred in preds:
             # getting bounding box coordinates
             print(img.shape)
-            xmin = max(int(pred["x"] - (pred["width"]/2)), 0)
+            xmin = max(int(pred["x"] - (pred["width"] / 2)), 0)
             xmax = min(int(xmin + pred["width"]), img.shape[1])
-            ymin = max(int(pred["y"] - (pred["height"]/2)), 0)
+            ymin = max(int(pred["y"] - (pred["height"] / 2)), 0)
             ymax = min(int(ymin + pred["height"]), img.shape[0])
             # getting label
             label = pred["class"] + " " + str(round(pred["confidence"], 2))
