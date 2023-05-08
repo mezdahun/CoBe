@@ -88,11 +88,6 @@ class CoBeEye(object):
         self.streaming_thread.start()
 
     @expose
-    def set_mjpeg_publishing(self, boolean):
-        """Sets the mjpeg publishing to true or false"""
-        self.publish_mjpeg_stream = boolean
-
-    @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
         print("Initializing OD Model")
@@ -189,6 +184,11 @@ class CoBeEye(object):
         return test_dict, datetime.datetime.now()
 
     @expose
+    def shutdown(self):
+        """Shutting down the eye by raising KeyBoardInterrupt"""
+        raise KeyboardInterrupt
+
+    @expose
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
@@ -210,11 +210,6 @@ class CoBeEye(object):
             if self.streaming_server is None:
                 self.setup_streaming_server()
             self.streaming_server.frame = self.annotate_detections(img, preds)
-        else:
-            if self.streaming_server is not None:
-                self.streaming_thread.join()
-                del self.streaming_server
-                self.streaming_server = None
 
         print("Inference done")
         return preds

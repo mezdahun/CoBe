@@ -11,6 +11,7 @@ They
     - can pass final coordinate results to the projection stack via Unity
 
 """
+import timeit
 import numpy as np
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel
@@ -71,6 +72,22 @@ class CoBeMaster(object):
                                                model_id=odmodel.model_id,
                                                inf_server_url=odmodel.inf_server_url,
                                                version=odmodel.version)
+
+    def cleanup_inference_servers(self, waitfor=3):
+        """Cleans up inference servers on all eyes.
+        Waiting for waitfor seconds between each stop and remove operation"""
+        for eye_name, eye_dict in self.eyes.items():
+            # stop docker servers
+            sleep(waitfor)
+            eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+            # waiting for docker to stop the container
+            sleep(waitfor)
+            eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
+
+    def shutdown_eye(self):
+        """Shutting down all eye servers by raising KeyboardInterrupt on each eye"""
+        for eye_name, eye_dict in self.eyes.items():
+            eye_dict["pyro_proxy"].shutdown()
 
     def start(self):
         """Starts the main action loop of the CoBe project"""
