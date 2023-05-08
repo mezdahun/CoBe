@@ -200,7 +200,7 @@ class CoBeEye(object):
             del pred["image_path"]
 
         # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
-        if self.pubish_mjpeg_stream:
+        if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
             self.streaming_server.frame = self.annotate_detections(img, preds)
