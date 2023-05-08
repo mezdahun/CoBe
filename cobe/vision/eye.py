@@ -202,10 +202,11 @@ class CoBeEye(object):
         """Annotating the image with bounding boxes and labels"""
         for pred in preds:
             # getting bounding box coordinates
-            xmin = int(pred["x"] - (pred["width"]/2))
-            xmax = int(xmin + (pred["width"]/2))
-            ymin = int(pred["y"] - (pred["height"]/2))
-            ymax = int(ymin + (pred["height"]/2))
+            print(img.shape)
+            xmin = max(int(pred["x"] - (pred["width"]/2)), 0)
+            xmax = min(int(xmin + (pred["width"]/2)), img.shape[1])
+            ymin = max(int(pred["y"] - (pred["height"]/2)), 0)
+            ymax = min(int(ymin + (pred["height"]/2)), img.shape[0])
             # getting label
             label = pred["class"] + " " + str(round(pred["confidence"], 2))
             # drawing bounding box
