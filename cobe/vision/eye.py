@@ -84,7 +84,8 @@ class CoBeEye(object):
         self.streaming_server = web_vision.StreamingServer(address, web_vision.StreamingHandler)
         self.streaming_server.des_res = (int(vision.capture_width / 2), int(vision.capture_height / 2))
         self.streaming_server.eye_id = self.id
-        threading.Thread(target=self.streaming_server.serve_forever).start()
+        self.streaming_thread = threading.Thread(target=self.streaming_server.serve_forever)
+        self.streaming_thread.start()
 
     @expose
     def set_mjpeg_publishing(self, boolean):
@@ -209,6 +210,11 @@ class CoBeEye(object):
             if self.streaming_server is None:
                 self.setup_streaming_server()
             self.streaming_server.frame = self.annotate_detections(img, preds)
+        else:
+            if self.streaming_server is not None:
+                self.streaming_thread.join()
+                del self.streaming_server
+                self.streaming_server = None
 
         print("Inference done")
         return preds
