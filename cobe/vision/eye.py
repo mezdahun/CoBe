@@ -17,6 +17,7 @@ import threading
 
 import numpy as np
 from Pyro5.api import expose, behavior, serve, oneway
+from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
 from cobe.settings import vision
@@ -247,10 +248,12 @@ def main(host="localhost", port=9090):
         port = int(args.port)
 
     # Start the daemon
+    daemon = Daemon(host, port)
     serve({CoBeEye: "cobe.eye"},
           use_ns=False,
           host=host,
-          port=port)
+          port=port,
+          daemon=daemon)
 
 
 if __name__ == "__main__":
