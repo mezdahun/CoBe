@@ -192,7 +192,7 @@ class CoBeEye(object):
         preds = detections.json().get("predictions")
         for pred in preds:
             del pred["image_path"]
-        print(preds)
+        print("Inference done")
         return preds
 
 

@@ -75,12 +75,13 @@ class CoBeMaster(object):
 
     def start(self):
         """Starts the main action loop of the CoBe project"""
+        from pprint import pprint
         # main action loop
         # while True:
         # get inference results from eyes
         # self.initialize_object_detectors()
         for eye_name, eye_dict in self.eyes.items():
-            for frid in range(3):
+            for frid in range(100):
                 # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
                 # # print(img_ser)
                 # # deserialize image from list to numpy array
@@ -88,8 +89,14 @@ class CoBeMaster(object):
                 # print(f"Captured frame {frid}", img.shape, t)
                 # plt.imshow(img)
                 # plt.show()
-                detections = eye_dict["pyro_proxy"].inference(confidence=20)
-                print(detections)
+                try:
+                    detections = eye_dict["pyro_proxy"].inference(confidence=20)
+                    pprint(detections)
+                except Exception as e:
+                    if e.find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
+                        print("Connection error. Inference server is probably not yet started properly. retrying in 3 "
+                              "seconds.")
+                        sleep(3)
 
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices
@@ -101,6 +108,7 @@ class CoBeMaster(object):
             # agent_coordinates = self.consume_pmodule_results()
             # # pass final results to projection stack via Unity
             # self.pass_results_to_projection_stack(agent_coordinates)
+
 
         for eye_name, eye_dict in self.eyes.items():
             # stop docker servers
