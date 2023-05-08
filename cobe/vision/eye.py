@@ -87,6 +87,11 @@ class CoBeEye(object):
         threading.Thread(target=self.streaming_server.serve_forever).start()
 
     @expose
+    def set_mjpeg_publishing(self, boolean):
+        """Sets the mjpeg publishing to true or false"""
+        self.publish_mjpeg_stream = boolean
+
+    @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
         print("Initializing OD Model")
