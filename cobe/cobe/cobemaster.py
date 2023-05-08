@@ -66,7 +66,6 @@ class CoBeMaster(object):
         for eye_name, eye_dict in self.eyes.items():
             # carry out a single detection to initialize the model weights
             print(f"Initializing model on {eye_name}. Model parameters:")
-            print(odmodel.api_key, odmodel.model_name, odmodel.model_id, odmodel.inf_server_url, odmodel.version)
             eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
                                                model_name=odmodel.model_name,
                                                model_id=odmodel.model_id,
@@ -80,23 +79,34 @@ class CoBeMaster(object):
         # while True:
         # get inference results from eyes
         # self.initialize_object_detectors()
+        try:
+            try:
+                for eye_name, eye_dict in self.eyes.items():
+                    for frid in range(100):
+                        try:
+                            detections = eye_dict["pyro_proxy"].inference(confidence=20)
+                            pprint(detections)
+                        except Exception as e:
+                            if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
+                                print("Connection error: Inference server is probably not yet started properly. "
+                                      "retrying in 3"
+                                      "seconds.")
+                                sleep(3)
+
+            except Exception as e:
+                print(e)
+                print("Cleaning up inference servers after crash...")
+
+        except KeyboardInterrupt:
+            print("Cleaning up inference servers...")
+
         for eye_name, eye_dict in self.eyes.items():
-            for frid in range(100):
-                # img_ser, t = eye_dict["pyro_proxy"].get_calibration_frame()
-                # # print(img_ser)
-                # # deserialize image from list to numpy array
-                # img = np.asarray(img_ser)
-                # print(f"Captured frame {frid}", img.shape, t)
-                # plt.imshow(img)
-                # plt.show()
-                try:
-                    detections = eye_dict["pyro_proxy"].inference(confidence=20)
-                    pprint(detections)
-                except Exception as e:
-                    if e.find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
-                        print("Connection error. Inference server is probably not yet started properly. retrying in 3 "
-                              "seconds.")
-                        sleep(3)
+            # stop docker servers
+            sleep(3)
+            eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+            # waiting for docker to stop the container
+            sleep(3)
+            eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
             #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
             # # remap inference results according to calibration matrices
@@ -108,14 +118,6 @@ class CoBeMaster(object):
             # agent_coordinates = self.consume_pmodule_results()
             # # pass final results to projection stack via Unity
             # self.pass_results_to_projection_stack(agent_coordinates)
-
-
-        for eye_name, eye_dict in self.eyes.items():
-            # stop docker servers
-            eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
-            # waiting for docker to stop the container
-            sleep(2)
-            eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
 
 
