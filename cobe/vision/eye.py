@@ -270,7 +270,7 @@ def main(host="localhost", port=9090):
         eye_instance = CoBeEye()
         uri = daemon.register(eye_instance, objectId="cobe.eye")
         print(uri)
-        daemon.requestLoop(eye_instance.is_running)
+        daemon.requestLoop(eye_instance.is_running())
 
 
 if __name__ == "__main__":
