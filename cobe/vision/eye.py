@@ -80,7 +80,7 @@ class CoBeEye(object):
         if self.publish_mjpeg_stream:
             self.setup_streaming_server()
 
-        self.is_running = True
+        self._is_running = True
 
     # # Example of exposing class attributes via Pyro5
     # @expose
@@ -95,7 +95,7 @@ class CoBeEye(object):
 
     def is_running(self):
         """Returns the running status of the eye"""
-        return self.is_running
+        return self._is_running
 
     def setup_streaming_server(self, port=vision.mjpeg_stream_port):
         """Sets up a streaming server for the image data from the camera"""
@@ -204,8 +204,8 @@ class CoBeEye(object):
 
     @expose
     def shutdown(self):
-        """Shutting down the eye by raising KeyBoardInterrupt"""
-        self.is_running = False
+        """Shutting down the eye by setting the Daemon's loop condition to False"""
+        self._is_running = False
 
     @expose
     def inference(self, confidence=40):
@@ -270,7 +270,7 @@ def main(host="localhost", port=9090):
         eye_instance = CoBeEye()
         uri = daemon.register(eye_instance, objectId="cobe.eye")
         print(uri)
-        daemon.requestLoop(eye_instance.is_running())
+        daemon.requestLoop(eye_instance.is_running)
 
 
 if __name__ == "__main__":
