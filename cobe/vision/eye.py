@@ -93,6 +93,10 @@ class CoBeEye(object):
     # def publish_mjpeg_stream(self, value):      # exposed as 'proxy.publish_mjpeg_stream' writable
     #     self.publish_mjpeg_stream = value
 
+    def is_running(self):
+        """Returns the running status of the eye"""
+        return self.is_running
+
     def setup_streaming_server(self, port=vision.mjpeg_stream_port):
         """Sets up a streaming server for the image data from the camera"""
         address = (self.local_ip, port)
