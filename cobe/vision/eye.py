@@ -76,8 +76,20 @@ class CoBeEye(object):
         # creating streaming server for image data
         self.publish_mjpeg_stream = vision.publish_mjpeg_stream
         self.streaming_server = None
+        self.streaming_thread = None
         if self.publish_mjpeg_stream:
             self.setup_streaming_server()
+
+    # # Example of exposing class attributes via Pyro5
+    # @expose
+    # @property
+    # def publish_mjpeg_stream(self):             # exposed as 'proxy.publish_mjpeg_stream' remote attribute
+    #     return self.value
+    #
+    # @expose
+    # @publish_mjpeg_stream.setter
+    # def publish_mjpeg_stream(self, value):      # exposed as 'proxy.publish_mjpeg_stream' writable
+    #     self.publish_mjpeg_stream = value
 
     def setup_streaming_server(self, port=vision.mjpeg_stream_port):
         """Sets up a streaming server for the image data from the camera"""
@@ -247,13 +259,11 @@ def main(host="localhost", port=9090):
     if args.port is not None:
         port = int(args.port)
 
-    # Start the daemon
-    daemon = Daemon(host, port)
-    serve({CoBeEye: "cobe.eye"},
-          use_ns=False,
-          host=host,
-          port=port,
-          daemon=daemon)
+    # Starting Pyro5 Daemon
+    with Daemon(host, port) as daemon:
+        uri = daemon.register(CoBeEye, objectId="cobe.eye")
+        print(uri)
+        daemon.requestLoop()
 
 
 if __name__ == "__main__":
