@@ -1,8 +1,6 @@
 import random
-from renderingstack import RenderingStack
 from introcs import Vector2
-from dataclasses import dataclass, asdict
-import json
+from dataclasses import dataclass
 import math
 
 numberofPalinaPoints = 5
@@ -19,28 +17,23 @@ class Palina_Point:
     v1: float
 
     @property
-    def normed_velocity(self) -> Vector2:
-        return Vector2((self.v0 / sizeX, self.v1 / sizeY))
-    
-    @property
-    def normed_position(self) -> Vector2:
-        return Vector2((self.x0 / sizeX, self.x1 / sizeY))
+    def relative_velocity(self) -> Vector2:
+        return Vector2(self.v0 / sizeX, self.v1 / sizeY)
     
 @dataclass
 class Json_Decompressor:
     step: int
-    actors: dict
     fish: dict
+    actors: dict
 
 
-    
+
 
 class ParticleSimulator(object):
     def __init__(self):
         self.fish = self.initialize_dictionary(numberofPalinaPoints)
         self.actors = self.initialize_dictionary(numberofPredators)
-        self.sending_stack = RenderingStack()
-        self.loopCounter = 0
+        self.loopCounter = -1
 
     def initialize_dictionary(self, limit: int) -> dict:
         tempDict = {}
@@ -52,8 +45,10 @@ class ParticleSimulator(object):
         
         return tempDict
 
-    def update(self):
+    def update(self) -> Json_Decompressor:
         # Generate the next step
+        self.loopCounter += 1
+
         temp_dict = {}
         for i in range(numberofPalinaPoints):
             temp_dict[i] = self.perturb_point(self.fish[i])
@@ -66,18 +61,12 @@ class ParticleSimulator(object):
         
         self.actors = temp_dict
 
-        # Create the [de]serializable JsonDecompressor
-        jsonString = json.dumps(asdict(Json_Decompressor(self.fish, self.actors, self.loopCounter)))
+        return Json_Decompressor(self.loopCounter, self.fish, self.actors)
 
-        if jsonString != "":
-            self.sending_stack.send_message(jsonString)
-
-        self.loopCounter += 1
-
-    def perturb_point(current_point: Palina_Point) -> Palina_Point:
+    def perturb_point(self, current_point: Palina_Point) -> Palina_Point:
         # Continue moving in the current direction unless we hit a wall
-        step = current_point.normed_velocity
-        step = (step.normalize().rotate(0.55) / 150).__mul__(Vector2(sizeX, sizeY))
+        step = current_point.relative_velocity
+        step = (step.normalize().rotate(0.01) / 150).__mul__(Vector2(sizeX, sizeY))
 
         if (current_point.x0 + step.x > 0.9 * sizeX or 
             current_point.x0 + step.x < 0.1 * sizeX):
