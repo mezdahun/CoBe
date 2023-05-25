@@ -187,10 +187,14 @@ class CoBeEye(object):
         return img, t_cap
 
     @expose
-    def get_calibration_frame(self):
+    def get_calibration_frame(self, width=None, height=None):
         """calibrating the camera by returning a single high resolution image to CoBe main node"""
+        if width is None:
+            width = vision.capture_width
+        if height is None:
+            height = vision.capture_height
         # taking single image with max possible resolution given the GStreamer pipeline
-        img, t_cap = self.get_frame(img_width=vision.capture_width, img_height=vision.capture_height)
+        img, t_cap = self.get_frame(img_width=width, img_height=height)
         # serializing numpy.ndarray to list
         img_ser = img.tolist()
         # returning serialized image data via Pyro5
