@@ -4,28 +4,33 @@ from particlesimulator import ParticleSimulator
 import json
 from dataclasses import asdict
 import sched, time
-
-unity_path = 'C:\\Users\\David\\Desktop\\test_build\\CoBe.exe'
-port = 13000
-ip_address = "127.0.0.1"
-failure_limit = 250
-sending_frequency = 0.02
+import rendersettings as rs
+import sys
 
 class RenderingStack(object):
     def __init__(self):
+        sys.path.insert(0, 'cobesettings.rendersettings')
         # Call the Unity app to open without blocking the thread
-        subprocess.Popen(unity_path)
+        subprocess.Popen(rs.unity_path)
         self.simulator = ParticleSimulator()
 
         # Create the TCP Sender
-        self.sender = self.create_tcp_sender(ip_address, port)
+        self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
 
         # Create the loop scheduler
         self.my_scheduler = sched.scheduler(time.time, time.sleep)
         self.consecutive_failures = 0
 
     def create_tcp_sender(self, ip_address: str, port: int) -> socket.socket:
-        # Create the TCP Sender object at the ip and port specified in the rendersettings.py file
+        """Creates a TCP Client object and attempts to connect to the socket specified by the method arguments
+
+        Args:
+            ip_address (str): The IP Address of the desired socket
+            port (int): The port of the desired socket
+
+        Returns:
+            socket.socket: The connected socket
+        """
         sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connected = False
 
@@ -41,8 +46,14 @@ class RenderingStack(object):
         return sender
 
     def send_message(self, text: str) -> bool:
-        # Send a JSON string to the Unity TCP Listener
-        # Once Unity starts receiving data on the fish port, the calibration image is automatically closed
+        """Attempts to send a message via the RenderingStack instance's self.sender client
+
+        Args:
+            text (str): The message to be sent
+
+        Returns:
+            bool: Whether the message was successfully communicated or not
+        """
         try:
             if self.sender.sendall(text.encode()) is None:
                 return True
@@ -52,17 +63,19 @@ class RenderingStack(object):
             return False
     
     def start_loop(self):
-        self.my_scheduler.enter(sending_frequency, 1, self.scheduled_send)
+        """Queues the first loop iteration and then begins execution"""
+        self.my_scheduler.enter(rs.sending_frequency, 1, self.scheduled_send)
         self.my_scheduler.run()   
 
     def scheduled_send(self): 
-        # schedule the next call first
-        if self.consecutive_failures < failure_limit:
-            self.my_scheduler.enter(sending_frequency, 1, self.scheduled_send)
+        """The template for a single loop iteration: queues the next iteration and updates the data set"""
+        # Schedule the next call first
+        if self.consecutive_failures < rs.failure_limit:
+            self.my_scheduler.enter(rs.sending_frequency, 1, self.scheduled_send)
         else:
             print("Consecutive failure limit reached, aborting queue")
 
-        # Serialize the JsonDecompressor into a string
+        # Serialize the JsonDecompressor into a string & attempt to send
         jsonString = json.dumps(asdict(self.simulator.update())) + "\n"
         if jsonString != "":
             if not self.send_message(jsonString):
@@ -74,8 +87,8 @@ class RenderingStack(object):
         self.sender.close()
 
 
-rs = RenderingStack()
-rs.start_loop()
+# rStack = RenderingStack()
+# rStack.start_loop()
 
 
 

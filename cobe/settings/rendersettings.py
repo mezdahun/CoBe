@@ -1,1 +1,0 @@
-unity_path = 'C:\\Users\\David\\Desktop\\test_build\\CoBe.exe'
