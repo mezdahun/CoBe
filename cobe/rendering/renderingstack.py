@@ -1,25 +1,16 @@
 import subprocess
 import socket
-from particlesimulator import ParticleSimulator
-import json
-from dataclasses import asdict
-import sched, time
+import time
 import rendersettings as rs
 import sys
 
 class RenderingStack(object):
     def __init__(self):
-        sys.path.insert(0, 'cobesettings.rendersettings')
         # Call the Unity app to open without blocking the thread
-        subprocess.Popen(rs.unity_path)
-        self.simulator = ParticleSimulator()
+        # subprocess.Popen(rs.unity_path)
 
         # Create the TCP Sender
         self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
-
-        # Create the loop scheduler
-        self.my_scheduler = sched.scheduler(time.time, time.sleep)
-        self.consecutive_failures = 0
 
     def create_tcp_sender(self, ip_address: str, port: int) -> socket.socket:
         """Creates a TCP Client object and attempts to connect to the socket specified by the method arguments
@@ -61,36 +52,6 @@ class RenderingStack(object):
                 return False
         except:
             return False
-    
-    def start_loop(self):
-        """Queues the first loop iteration and then begins execution"""
-        self.my_scheduler.enter(rs.sending_frequency, 1, self.scheduled_send)
-        self.my_scheduler.run()   
-
-    def scheduled_send(self): 
-        """The template for a single loop iteration: queues the next iteration and updates the data set"""
-        # Schedule the next call first
-        if self.consecutive_failures < rs.failure_limit:
-            self.my_scheduler.enter(rs.sending_frequency, 1, self.scheduled_send)
-        else:
-            print("Consecutive failure limit reached, aborting queue")
-
-        # Serialize the JsonDecompressor into a string & attempt to send
-        jsonString = json.dumps(asdict(self.simulator.update())) + "\n"
-        if jsonString != "":
-            if not self.send_message(jsonString):
-                self.consecutive_failures += 1
-            else: 
-                self.consecutive_failures = 0
 
     def close_sender(self):
         self.sender.close()
-
-
-# rStack = RenderingStack()
-# rStack.start_loop()
-
-
-
-
-
