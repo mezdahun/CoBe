@@ -104,7 +104,7 @@ class CoBeEye(object):
 
     @expose
     @fisheye_calibration_map.setter
-    def publish_mjpeg_stream(self, value):      # exposed as 'proxy.publish_mjpeg_stream' writable
+    def fisheye_calibration_map(self, value):      # exposed as 'proxy.publish_mjpeg_stream' writable
         self.fisheye_calibration_map = value
 
     def is_running(self):
