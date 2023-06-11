@@ -187,8 +187,9 @@ class CoBeEye(object):
     def get_frame(self, img_width, img_height):
         """getting single camera frame according to stream parameters and resizing it to desired dimensions"""
         if self.map1 is None and self.fisheye_calibration_map is not None:
-            print("Fisheye map file provided but not yet loaded, loading it first...")
-            maps = np.load(self.fisheye_calibration_map)
+            cmap_path = os.path.join('vision', 'calibration_maps', self.fisheye_calibration_map)
+            print(f"Fisheye map file provided but not yet loaded, loading it first from {cmap_path}...")
+            maps = np.load(cmap_path)
             self.map1, self.map2 = maps["map1"], maps["map2"]
             print("Fisheye map file loaded successfully")
 
