@@ -8,5 +8,6 @@ eyes = {
         "port": "1234",
         "uri": "PYRO:",
         "name": "cobe.eye",
+        "fisheye_calibration_map": "map_eye1.npz"
     }
 }

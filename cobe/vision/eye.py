@@ -73,6 +73,10 @@ class CoBeEye(object):
         self.inference_server_id = None
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
+        # Opening calibration maps
+        self.fisheye_calibration_map = None
+        self.map1 = None
+        self.map2 = None
         # creating streaming server for image data
         self.publish_mjpeg_stream = vision.publish_mjpeg_stream
         self.streaming_server = None
@@ -177,10 +181,22 @@ class CoBeEye(object):
 
     def get_frame(self, img_width, img_height):
         """getting single camera frame according to stream parameters and resizing it to desired dimensions"""
+        if self.map1 is None and self.fisheye_calibration_map is not None:
+            print("Fisheye map file provided but not yet loaded, loading it first...")
+            maps = np.load(self.fisheye_calibration_map)
+            self.map1, self.map2 = maps["map1"], maps["map2"]
+            print("Fisheye map file loaded successfully")
+
         t_cap = datetime.datetime.now()
         print("Taking single frame")
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
+
+        if self.map1 is not None:
+            # undistorting image according to fisheye calibration map
+            imgo = cv2.remap(imgo, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
+                             borderMode=cv2.BORDER_CONSTANT)
+
         # resizing image to requested w and h
         img = cv2.resize(imgo, (img_width, img_height))
         # returning image and timestamp
