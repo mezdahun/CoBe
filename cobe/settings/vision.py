@@ -9,8 +9,8 @@ import os
 
 ### Camera stream settings ###
 flip_method = os.getenv("FLIP_METHOD", 2)
-capture_width = os.getenv("CAPTURE_WIDTH", 1640)
-capture_height = os.getenv("CAPTURE_HEIGHT", 1232)
+capture_width = os.getenv("CAPTURE_WIDTH", 820)
+capture_height = os.getenv("CAPTURE_HEIGHT", 612)
 frame_rate = os.getenv("FRAME_RATE", 5)
 
 ### Published MJPEG stream settings ###
