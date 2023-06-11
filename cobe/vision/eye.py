@@ -27,8 +27,8 @@ from cobe.vision import web_vision
 def gstreamer_pipeline(
         capture_width=vision.capture_width,
         capture_height=vision.capture_height,
-        display_width=vision.capture_width,
-        display_height=vision.capture_height,
+        display_width=vision.display_width,
+        display_height=vision.display_height,
         framerate=vision.frame_rate,
         flip_method=vision.flip_method,
 ):
