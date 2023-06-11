@@ -9,10 +9,10 @@ import os
 
 ### Camera stream settings ###
 flip_method = os.getenv("FLIP_METHOD", 2)
-capture_width = os.getenv("CAPTURE_WIDTH", 820)
-capture_height = os.getenv("CAPTURE_HEIGHT", 612)
+capture_width = os.getenv("CAPTURE_WIDTH", 820)  # fisheye calibration maps should be adjusted to this resolution
+capture_height = os.getenv("CAPTURE_HEIGHT", 616)  # fisheye calibration maps should be adjusted to this resolution
 frame_rate = os.getenv("FRAME_RATE", 5)
 
 ### Published MJPEG stream settings ###
-publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", True)
+publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", False)
 mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
