@@ -1,7 +1,7 @@
 import subprocess
 import socket
 import time
-import rendersettings as rs
+import cobe.rendering.rendersettings as rs
 import sys
 
 class RenderingStack(object):

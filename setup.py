@@ -27,7 +27,9 @@ setup(
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
-                            "cobe_master_start=cobe.app:main"]
+                            "cobe_master_start=cobe.app:main",
+                            "cobe-start-pmodule-docker=cobe.pmodule.pmodule:entry_start_docker_container",
+                            "cobe-stop-pmodule-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
