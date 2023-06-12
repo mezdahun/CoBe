@@ -210,17 +210,23 @@ class CoBeEye(object):
 
     @expose
     def get_calibration_frame(self, width=None, height=None):
-        """calibrating the camera by returning a single high resolution image to CoBe main node"""
+        """Used for calibrating the camera with ARUCO codes by publishing a single high resolution image on the
+        local network."""
         if width is None:
             width = vision.capture_width
         if height is None:
             height = vision.capture_height
         # taking single image with max possible resolution given the GStreamer pipeline
         img, t_cap = self.get_frame(img_width=width, img_height=height)
-        # serializing numpy.ndarray to list
-        img_ser = img.tolist()
-        # returning serialized image data via Pyro5
-        return img_ser, t_cap
+        # adding high resolution image to calibration frame to publish on local network
+        if self.publish_mjpeg_stream:
+            if self.streaming_server is None:
+                self.setup_streaming_server()
+            self.streaming_server.calib_frame = img
+        else:
+            print("MJPEG stream not enabled when eye was initialized. Cannot publish calibration frame."
+                  "Set vision.publish_mjpeg_stream to True and restart eye.")
+
 
     @expose
     def test_dict_return_latency(self):
