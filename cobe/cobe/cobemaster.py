@@ -44,6 +44,8 @@ class CoBeMaster(object):
             eyes[eye_name] = {"pyro_proxy": Proxy(
                 eye_data["uri"] + eye_data["name"] + "@" + eye_data["host"] + ":" + eye_data["port"])}
             eyes[eye_name]["eye_data"] = eye_data
+            # adding fisheye calibration map for eye
+            eyes[eye_name]["pyro_proxy"].set_fisheye_calibration_map(eye_data["fisheye_calibration_map"])
             # testing created eye by accessing public Pyro method and comparing outcome with expected ID
             assert eyes[eye_name]["pyro_proxy"].return_id() == eyes[eye_name]["eye_data"]["expected_id"]
         return eyes
