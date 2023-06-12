@@ -152,12 +152,154 @@ class CoBeCalib(object):
         """Constructor, initializing resolume interface"""
         pass
 
-    def calibrate(self, pyro_proxy):
-        """Calibrates the CoBe system
-        :param pyro_proxy: Pyro proxy object of the eye to calibrate"""
-        # project calibration image via resolume
-        # collect calibration image from eye
-        # calculate calibration matrix
+    def fetch_calibration_frames(self, eyes):
+        """Fetches calibration frames from all eyes"""
+        # Generate and publish calibration frames for all eyes
+        for eye_name, eye_dict in eyes.items():
+            eye_dict["pyro_proxy"].get_calibration_frame()
+
+        # Downloading calibration frames from all eyes
+        for eye_name, eye_dict in eyes.items():
+            print(eye_dict)
+            cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
+            ret, frame = cap.read()
+            eye_dict["calibration_frame"] = frame
+            cap.release()
+
+    def detect_ARUCO_codes(self, eyes):
+        """Detects ARUCO codes according to cobe.settings.aruco in fetched calibration images"""
+
+        aruco_dict = aruco.aruco_dict  # dictionary of the code convention
+        aruco_parameters = aruco.aruco_params  # detector parameters
+
+        # creating aruco detector (syntax change from cv2 v4.7, does not work with other versions)
+        detector = cv2.aruco.ArucoDetector()
+        detector.setDictionary(aruco_dict)
+        detector.setDetectorParameters(aruco_parameters)
+        for eye_name, eye_dict in eyes.items():
+            # detect aruco codes
+            corners, ids, rejected_points = detector.detectMarkers(eye_dict["calibration_frame"])
+            eye_dict["detected_aruco"] = {"corners": corners, "ids": ids, "rejected_points": rejected_points}
+            # saving annotated image
+            eye_dict["calibration_frame_annot"] = cv2.aruco.drawDetectedMarkers(eye_dict["calibration_frame"],
+                                                                                eye_dict["detected_aruco"]["corners"],
+                                                                                eye_dict["detected_aruco"]["ids"])
+            # show image
+            cv2.imshow(eye_name, eye_dict["calibration_frame_annot"])
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            cv2.waitKey(1)
+
+    def interpolate_xy_maps(self, eyes):
+        """Generating a map of xy coordinate maps for each eye that maps any pixel of the camera to the corresponding
+        pixel of the projector. This is done by interpolating the xy detections of ARUCO codes in the calibration frames
+        of the eyes."""
+        # getting x coordinates of detected aruco code centers
+        for eye_name, eye_dict in eyes.items():
+            # get corners of detected aruco codes
+            corners = eye_dict["detected_aruco"]["corners"]
+            # get ids of detected aruco codes
+            ids = eye_dict["detected_aruco"]["ids"]
+            # get center coordinates of detected aruco codes
+            centers = np.array([np.mean(corners[i][0], axis=0) for i in range(len(corners))])
+            # get x coordinates of detected aruco code centers
+            x = centers[:, 0]
+            # get y coordinates of detected aruco code centers
+            y = centers[:, 1]
+
+
+            # Create grid values first.
+            xi = np.linspace(min(x)-0.1, max(x)+0.1, int(max(x)-min(x)))
+            yi = np.linspace(min(y)-0.1, max(y)+0.1, int(max(y)-min(y)))
+
+            # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
+            import matplotlib.tri as tri
+            triang = tri.Triangulation(x, y)
+            interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))])
+            interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
+            Xi, Yi = np.meshgrid(xi, yi)
+            xreal = interpolator_xreal(Xi, Yi)
+            yreal = interpolator_yreal(Xi, Yi)
+
+            fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+
+            # Show image with detections
+            plt.axes(ax[0, 0])
+            plt.imshow(eye_dict["calibration_frame_annot"])
+            plt.title("Original image with ARUCO detections")
+
+            # Show extracted points
+            plt.axes(ax[0, 1])
+            plt.scatter(x, y, c="blue")
+            # showing corners
+            for i in range(len(corners)):
+                plt.scatter(corners[i][0][:, 0], corners[i][0][:, 1], c="red")
+            plt.title("Tag corners and centers")
+            plt.xlabel("camera x")
+            plt.ylabel("camera y")
+            # keep aspect ratio original
+            plt.axis('scaled')
+            plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+            plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+
+            # Show estimated real x coordinates
+            plt.axes(ax[1, 0])
+            ax[1, 0].contour(xi, yi, xreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+            cntr1 = ax[1, 0].contourf(xi, yi, xreal, levels=14, cmap="RdBu_r")
+
+            ax[1, 0].plot(x, y, 'ko', ms=3)
+            plt.xlabel("camera x")
+            plt.ylabel("camera y")
+            plt.title("Projection coordinate estimate (x)")
+            # keep aspect ratio original
+            plt.axis('scaled')
+            plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+            plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+            # Show estimated real y coordinates
+            plt.axes(ax[1, 1])
+            ax[1, 1].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+            cntr1 = ax[1, 1].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
+
+            ax[1, 1].plot(x, y, 'ko', ms=3)
+            plt.xlabel("camera x")
+            plt.ylabel("camera y")
+            plt.title("Projection coordinate estimate (y)")
+            # keep aspect ratio original
+            plt.axis('scaled')
+            plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+            plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+            # using tight layout
+            plt.tight_layout()
+            plt.show()
+
+    def generate_calibration_image(self):
+        """Generates an image with ARUCO codes encoding the x,y coordinates of the real space/arena."""
+        aruco_dict = aruco.aruco_dict  # dictionary of the code convention
+        aruco_parameters = aruco.aruco_params  # detector parameters
+        # plain white image
+        calibration_image = np.ones((aruco.proj_calib_image_height, aruco.proj_calib_image_width), dtype=np.uint8) * 255
+        # generate QR codes
+        for id, (xproj, yproj) in aruco.aruco_id_to_proj_pos.items():
+            # generate ARUCO code
+            aruco_code = aruco_dict.generateImageMarker(id, aruco.code_size)
+            aruco_code = np.pad(aruco_code, aruco.pad_size, mode='constant', constant_values=255)
+            padded_code_size = aruco.code_size + 2 * aruco.pad_size
+            # merge code on calibration image according to (xproj, yproj)
+            calibration_image[yproj-int(padded_code_size/2):yproj+int(padded_code_size/2),
+                              xproj-int(padded_code_size/2):xproj+int(padded_code_size/2)] = aruco_code
+
+
+        # resize image to 25%
+        img = cv2.resize(calibration_image, (0, 0), fx=0.25, fy=0.25)
+
+        # show image with matplotlib
+        plt.imshow(img, cmap="gray")
+        plt.show()
+
+
         # return calibration matrix
         W = 10  # image width from camera
         H = 10  # image height from camera
