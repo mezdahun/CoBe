@@ -12,11 +12,15 @@ They
 
 """
 import timeit
+
+import cv2
 import numpy as np
 from Pyro5.api import Proxy
-from cobe.settings import network, odmodel
+from cobe.settings import network, odmodel, aruco
 from time import sleep
 import matplotlib.pyplot as plt
+from getpass import getpass
+from pyzbar.pyzbar import decode
 
 
 class CoBeMaster(object):
