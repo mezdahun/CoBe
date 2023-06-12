@@ -34,10 +34,8 @@ class CoBeMaster(object):
         self.calibrator = CoBeCalib()
         # calculating mapping matrices for each eye (as given matrix in the self.eyes dict)
         self.calculate_calibration_maps()
-        # initializing object detectors on eyes
-        self.nano_password = input("To start inference server on Nano, please enter the admin password:")
-        self.initialize_object_detectors()
-        # at this point eyes are read for traffic
+        # requesting master password for nanos
+        self.nano_password = getpass("To start inference server on Nano, please enter the admin password:")
 
     def create_eye_objects(self):
         """Creates eye Pyro objects from the network settings"""
