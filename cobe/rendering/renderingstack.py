@@ -3,6 +3,7 @@ import socket
 import time
 import cobe.rendering.rendersettings as rs
 import sys
+import base64
 
 class RenderingStack(object):
     def __init__(self):
@@ -36,17 +37,17 @@ class RenderingStack(object):
 
         return sender
 
-    def send_message(self, text: str) -> bool:
+    def send_message(self, byte_object: bytes) -> bool:
         """Attempts to send a message via the RenderingStack instance's self.sender client
 
         Args:
-            text (str): The message to be sent
+            byte_object: (byte-like): The message to be sent
 
         Returns:
             bool: Whether the message was successfully communicated or not
         """
         try:
-            if self.sender.sendall(text.encode()) is None:
+            if self.sender.sendall(byte_object) is None:
                 return True
             else:
                 return False
@@ -55,3 +56,25 @@ class RenderingStack(object):
 
     def close_sender(self):
         self.sender.close()
+
+    def display_image(self, byte_array: bytearray):
+        """Displays the passed image atop the Unity rendering stack
+
+        Args:
+            byte_array: (bytearray): The image to be displayed represented as a byte array
+        """
+        converted_string = base64.b64encode(byte_array)
+        self.send_message(converted_string)
+
+    def remove_image(self):
+        self.send_message("0".encode())
+
+
+
+## Testing suite for loading image from disk and passing to Unity
+# image_file_path = "C:\\Users\\David\\Desktop\\Albs\\IMG_20230425_183336.jpg"
+# rs = RenderingStack()
+# with open(image_file_path, "rb") as image:
+#     rs.display_image(image.read())
+# rs.remove_image()
+
