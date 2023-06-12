@@ -45,10 +45,17 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 while True:
-                    if self.server.frame is not None:
+                    jpg = None
+                    if self.server.frame is not None and self.path.endswith('stream.mjpg'):
+                        # Streaming inference frame for monitoring
                         jpg = Image.fromarray(
                             cv2.resize(cv2.cvtColor(self.server.frame, cv2.COLOR_BGR2RGB), self.server.des_res).astype(
                                 'uint8'))
+                    if self.server.calib_frame is not None and self.path.endswith('calibration.mjpg'):
+                        # Streaming high-resolution calibration frame for calibration
+                        jpg = Image.fromarray(
+                            cv2.cvtColor(self.server.calib_frame, cv2.COLOR_BGR2RGB).astype('uint8'))
+                    if jpg is not None:
                         buf = io.BytesIO()
                         jpg.save(buf, format='JPEG')
                         frame_n = buf.getvalue()
@@ -58,6 +65,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                         self.wfile.write(frame_n)
                         self.wfile.write(b'\r\n')
                         self.server.frame = None
+
             except Exception as e:
                 logging.warning(
                     'Removed streaming client %s: %s',
@@ -73,8 +81,10 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
     def __init__(self, x, y):
         super(StreamingServer, self).__init__(x, y)
-        # frame to attach to mJPG stream
+        # frame to attach to monitoring mJPG stream
         self.frame = None
+        # highres frame to attach to calibration mJPG stream
+        self.calib_frame = None
         # desired resolution of the stream
         self.des_res = None
         # id of the CoBeEye to stream
