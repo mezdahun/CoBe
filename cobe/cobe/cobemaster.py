@@ -88,8 +88,11 @@ class CoBeMaster(object):
             sleep(waitfor)
             eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
-    def shutdown_eye(self):
+    def shutdown_eyes(self):
         """Shutting down all eye servers by raising KeyboardInterrupt on each eye"""
+        self.cleanup_inference_servers()
+        print("Waiting for cleanup...")
+        sleep(5)
         for eye_name, eye_dict in self.eyes.items():
             eye_dict["pyro_proxy"].shutdown()
 
