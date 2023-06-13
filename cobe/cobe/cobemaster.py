@@ -12,11 +12,10 @@ They
 
 """
 import timeit
-
 import cv2
 import numpy as np
 from Pyro5.api import Proxy
-from cobe.settings import network, odmodel, aruco
+from cobe.settings import network, odmodel, aruco, vision
 from time import sleep
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
@@ -49,7 +48,6 @@ class CoBeMaster(object):
             # testing created eye by accessing public Pyro method and comparing outcome with expected ID
             assert eyes[eye_name]["pyro_proxy"].return_id() == eyes[eye_name]["eye_data"]["expected_id"]
         return eyes
-
 
     def initialize_object_detectors(self):
         """Starting the roboflow inference servers on all the eyes and carry out a single detection to initialize
@@ -103,6 +101,71 @@ class CoBeMaster(object):
         for eye_name, eye_dict in self.eyes.items():
             eye_dict["pyro_proxy"].shutdown()
 
+    def remap_detection_point(self, eye_dict, xcam, ycam):
+        """Remaps a detection point from camera space to real space according to the calibration maps"""
+        # First trying to get a more accurate interpolated value from the calibration map
+        # find index of closest x value in eyes calibration map to provided xcam
+        x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # find index of closest y value in eyes calibration map to provided ycam
+        y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # return the real space coordinates for the provided camera space coordinates
+        xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
+        # todo: implement remapping with extrapolated values if interpolated values are not valid
+        # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
+        # if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+        #     x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
+        #     # find index of closest y value in eyes calibration map to provided ycam
+        #     y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
+        #     # return the real space coordinates for the provided camera space coordinates
+        #     xreal, yreal = eye_dict["cmap_xmap_extrap"][y_index, x_index], eye_dict["cmap_ymap_extrap"][
+        #         y_index, x_index]
+        return xreal, yreal
+
+    def demo_remapping(self, eye_name="eye_0"):
+        """Demo function to show the remapping of a detection point from camera space to simulation space"""
+        plt.ion()
+        fig, (axcam, axreal) = plt.subplots(ncols=2)
+        fig.canvas.draw()
+
+        aruco_image = self.calibrator.generate_calibration_image(return_image=True)
+
+        # Showing the recorded calibration frame to visualize camera space
+        plt.axes(axcam)
+        plt.imshow(self.eyes["eye_0"]["calibration_frame_annot"])
+        plt.title("Calibration frame with ARUCO detections")
+
+        # Showing the calibration image with the ARUCO codes to visualize camera space
+        plt.axes(axreal)
+        plt.imshow(aruco_image, cmap='gray')
+        plt.title("Original calibration image on simulation space")
+
+        xs = np.arange(0, vision.capture_width, 50)
+        ys = np.arange(0, vision.capture_height, 50)
+
+        for xcam in xs:
+            for ycam in ys:
+                xreal, yreal = self.remap_detection_point(self.eyes[eye_name], xcam, ycam)
+                if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                    xreal, yreal = 0, 0
+                if xreal != 0 and yreal != 0:
+                    print("----")
+                    print(xcam, ycam)
+                    print(xreal, yreal)
+
+                    plt.axes(axcam)
+                    plt.scatter(xcam, ycam, c='r', marker='o')
+                    plt.title("Camera space")
+                    plt.xlim(0, vision.capture_width)
+                    plt.ylim(0, vision.capture_height)
+
+                    plt.axes(axreal)
+                    plt.scatter(xreal, yreal, c='r', marker='o', s=80)
+                    plt.title("Simulation space")
+                    plt.xlim(0, aruco.proj_calib_image_width)
+                    plt.ylim(0, aruco.proj_calib_image_width)
+
+                    plt.pause(0.001)
+
     def start(self):
         """Starts the main action loop of the CoBe project"""
         self.initialize_object_detectors()
@@ -117,7 +180,7 @@ class CoBeMaster(object):
                             # pprint(detections)
                             ifp = timeit.timeit(lambda: eye_dict["pyro_proxy"].inference(confidence=20),
                                                 number=num_iterations) / num_iterations
-                            print("Loop done with framerate: ", 1/ifp)
+                            print("Loop done with framerate: ", 1 / ifp)
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 print("Connection error: Inference server is probably not yet started properly. "
@@ -144,22 +207,22 @@ class CoBeMaster(object):
         #     sleep(3)
         #     eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
-            #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
-            # # remap inference results according to calibration matrices
-            # for eye_name, eye_dict in self.eyes.items():
-            #     eye_dict["remapped_inference_results"] = self.calibrator.remap_inference_results(
-            #         eye_dict["inference_results"], eye_dict["calibration_map"])
-            # # call Pmodule and consume results
-            # self.call_pmodule()
-            # agent_coordinates = self.consume_pmodule_results()
-            # # pass final results to projection stack via Unity
-            # self.pass_results_to_projection_stack(agent_coordinates)
-
+        #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
+        # # remap inference results according to calibration matrices
+        # for eye_name, eye_dict in self.eyes.items():
+        #     eye_dict["remapped_inference_results"] = self.calibrator.remap_inference_results(
+        #         eye_dict["inference_results"], eye_dict["calibration_map"])
+        # # call Pmodule and consume results
+        # self.call_pmodule()
+        # agent_coordinates = self.consume_pmodule_results()
+        # # pass final results to projection stack via Unity
+        # self.pass_results_to_projection_stack(agent_coordinates)
 
 
 class CoBeCalib(object):
     """The calibration class is responsible for the calibration of the CoBe Eyes and can communicate with the
     projector stack via Resolume"""
+
     def __init__(self):
         """Constructor, initializing resolume interface"""
         pass
@@ -227,15 +290,16 @@ class CoBeCalib(object):
             # get y coordinates of detected aruco code centers
             y = centers[:, 1]
 
-
             # Create grid values first.
-            xi = np.linspace(min(x)-0.1, max(x)+0.1, int(max(x)-min(x)))
-            yi = np.linspace(min(y)-0.1, max(y)+0.1, int(max(y)-min(y)))
+            xi = np.linspace(min(x) - 0.1, max(x) + 0.1, int(max(x) - min(x)))
+            yi = np.linspace(min(y) - 0.1, max(y) + 0.1, int(max(y) - min(y)))
 
             # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
             triang = tri.Triangulation(x, y)
-            interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))])
-            interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
+            interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in
+                                                                    range(len(ids))])
+            interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in
+                                                                    range(len(ids))])
             Xi, Yi = np.meshgrid(xi, yi)  # interpolation range (ARUCO covered image area)
             xreal = interpolator_xreal(Xi, Yi)
             yreal = interpolator_yreal(Xi, Yi)
@@ -246,14 +310,16 @@ class CoBeCalib(object):
 
             # Extrapolating data outside the ARUCO covered range
             ext_range = 50
-            xs = np.linspace(min(xi)-ext_range, max(xi)+ext_range)
-            ys = np.linspace(min(yi)-ext_range, max(yi)+ext_range)
+            xs = np.linspace(min(xi) - ext_range, max(xi) + ext_range)
+            ys = np.linspace(min(yi) - ext_range, max(yi) + ext_range)
             xnew, ynew = np.meshgrid(xs, ys)  # extrapolation range (whole image area)
             xnew = xnew.flatten()
             ynew = ynew.flatten()
 
-            rbf3_xreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))], function="multiquadric", smooth=5)
-            rbf3_yreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))], function="multiquadric", smooth=5)
+            rbf3_xreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))],
+                             function="multiquadric", smooth=5)
+            rbf3_yreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))],
+                             function="multiquadric", smooth=5)
             xreal_extra = rbf3_xreal(xnew, ynew)
             yreal_extra = rbf3_yreal(xnew, ynew)
             xreal_extra_reshaped = xreal_extra.reshape((len(ys), len(xs)))
@@ -285,7 +351,6 @@ class CoBeCalib(object):
                 plt.axis('scaled')
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
-
 
                 # Show interpolated real x coordinates
                 plt.axes(ax[0, 1])
@@ -338,7 +403,7 @@ class CoBeCalib(object):
                 # showing extrapolated values
                 ax[1, 2].contour(xs, ys, yreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
                 cntr1 = ax[1, 2].contourf(xs, ys, yreal_extra_reshaped, levels=50, cmap="RdBu_r",
-                                            vmin=np.min(yreal), vmax=np.max(yreal))
+                                          vmin=np.min(yreal), vmax=np.max(yreal))
                 # showing interpolated values for double check
                 ax[1, 2].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
                 cntr1 = ax[1, 2].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
@@ -350,7 +415,6 @@ class CoBeCalib(object):
                 plt.axis('scaled')
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
-
 
                 # using tight layout
                 plt.tight_layout()
@@ -372,7 +436,6 @@ class CoBeCalib(object):
             y = centers[:, 1]
             # get 3D value of x, y coordinates, i.e. the ids
             z = ids[:, 0]
-
 
             # Create extrapolation range
             # some extrapolation over the whole image
@@ -396,7 +459,7 @@ class CoBeCalib(object):
             ax.scatter3D(xnew, ynew, znew)
             plt.show()
 
-    def generate_calibration_image(self):
+    def generate_calibration_image(self, return_image=False):
         """Generates an image with ARUCO codes encoding the x,y coordinates of the real space/arena."""
         aruco_dict = aruco.aruco_dict  # dictionary of the code convention
         aruco_parameters = aruco.aruco_params  # detector parameters
@@ -409,16 +472,18 @@ class CoBeCalib(object):
             aruco_code = np.pad(aruco_code, aruco.pad_size, mode='constant', constant_values=255)
             padded_code_size = aruco.code_size + 2 * aruco.pad_size
             # merge code on calibration image according to (xproj, yproj)
-            calibration_image[yproj-int(padded_code_size/2):yproj+int(padded_code_size/2),
-                              xproj-int(padded_code_size/2):xproj+int(padded_code_size/2)] = aruco_code
+            calibration_image[yproj - int(padded_code_size / 2):yproj + int(padded_code_size / 2),
+            xproj - int(padded_code_size / 2):xproj + int(padded_code_size / 2)] = aruco_code
 
+        if not return_image:
+            # resize image to 25%
+            img = cv2.resize(calibration_image, (0, 0), fx=0.25, fy=0.25)
 
-        # resize image to 25%
-        img = cv2.resize(calibration_image, (0, 0), fx=0.25, fy=0.25)
-
-        # show image with matplotlib
-        plt.imshow(img, cmap="gray")
-        plt.show()
+            # show image with matplotlib
+            plt.imshow(img, cmap="gray")
+            plt.show()
+        else:
+            return calibration_image
 
         # todo: save image or send to projection stack
 
@@ -443,7 +508,6 @@ class CoBeCalib(object):
                                                     "center": (qr.rect.left + qr.rect.width / 2,
                                                                qr.rect.top + qr.rect.height / 2)}
         return found_codes
-
 
     def remap_inference_results(self, inference_results, calibration_map):
         """Remaps inference results according to calibration matrix
