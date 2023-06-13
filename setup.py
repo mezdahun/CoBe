@@ -23,13 +23,20 @@ setup(
             'flake8',
             'pytest',
             'pytest-cov'
+        ],
+        'cobe-master': [
+            'pyzbar',  # for QR code reading, on non-windows system additional steps needed
+            'opencv-python==4.7.0.72',
+            'matplotlib',
+            'scipy'
         ]
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
                             "cobe-master-start=cobe.app:main",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
-                            "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes"]
+                            "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
+                            "cobe-master-calibrate=cobe.app:calibrate"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
