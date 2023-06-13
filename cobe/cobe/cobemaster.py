@@ -176,11 +176,8 @@ class CoBeMaster(object):
                     for frid in range(5):
                         num_iterations = 300
                         try:
-                            # detections = eye_dict["pyro_proxy"].inference(confidence=20)
-                            # pprint(detections)
-                            ifp = timeit.timeit(lambda: eye_dict["pyro_proxy"].inference(confidence=20),
-                                                number=num_iterations) / num_iterations
-                            print("Loop done with framerate: ", 1 / ifp)
+                            detections = eye_dict["pyro_proxy"].inference(confidence=20)
+                            print(detections)
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 print("Connection error: Inference server is probably not yet started properly. "
