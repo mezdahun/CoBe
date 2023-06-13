@@ -2,24 +2,27 @@ import subprocess
 import socket
 import time
 import cobe.rendering.rendersettings as rs
-import sys
+# import rendersettings as rs
+import psutil
 import base64
 
 class RenderingStack(object):
     def __init__(self):
-        # Call the Unity app to open without blocking the thread
-        # subprocess.Popen(rs.unity_path)
+        # Call the Unity app to open without blocking the thread if it's not open already
+        if not self.is_file_running("CoBe.exe"):
+            subprocess.Popen(rs.unity_path)
+        
+        if not self.is_file_running("Arena.exe"):
+            subprocess.Popen(rs.resolume_path)
 
         # Create the TCP Sender
         self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
 
     def create_tcp_sender(self, ip_address: str, port: int) -> socket.socket:
         """Creates a TCP Client object and attempts to connect to the socket specified by the method arguments
-
         Args:
             ip_address (str): The IP Address of the desired socket
             port (int): The port of the desired socket
-
         Returns:
             socket.socket: The connected socket
         """
@@ -39,10 +42,8 @@ class RenderingStack(object):
 
     def send_message(self, byte_object: bytes) -> bool:
         """Attempts to send a message via the RenderingStack instance's self.sender client
-
         Args:
-            byte_object: (byte-like): The message to be sent
-
+            byte_object: (byte-like): The message to be sent converted to bytes, such as produced by file.read()
         Returns:
             bool: Whether the message was successfully communicated or not
         """
@@ -59,7 +60,6 @@ class RenderingStack(object):
 
     def display_image(self, byte_array: bytearray):
         """Displays the passed image atop the Unity rendering stack
-
         Args:
             byte_array: (bytearray): The image to be displayed represented as a byte array
         """
@@ -68,13 +68,21 @@ class RenderingStack(object):
 
     def remove_image(self):
         self.send_message("0".encode())
+    
+    def is_file_running(self, name: str) -> bool:
+        for pid in psutil.pids():
+            p = psutil.Process(pid)
+            if p.name() == name:
+                return True
+        return False
 
 
 
-## Testing suite for loading image from disk and passing to Unity
-# image_file_path = "C:\\Users\\David\\Desktop\\Albs\\IMG_20230425_183336.jpg"
+# # Testing suite for loading image from disk and passing to Unity
+# image_file_path = "C:\\Users\\David\\Pictures\\test_image2.jpeg"
 # rs = RenderingStack()
 # with open(image_file_path, "rb") as image:
 #     rs.display_image(image.read())
+
 # rs.remove_image()
 
