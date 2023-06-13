@@ -206,7 +206,7 @@ class CoBeEye(object):
         # resizing image to requested w and h
         img = cv2.resize(imgo, (img_width, img_height))
         # returning image and timestamp
-        return img, t_cap
+        return imgo
 
     @expose
     def get_calibration_frame(self, width=None, height=None):
