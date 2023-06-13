@@ -243,27 +243,27 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
-        detections = self.detector_model.predict(img, confidence=confidence)  # ,
-        print(detections.json())
+        #detections = self.detector_model.predict(img, confidence=confidence)
+        # print(detections.json())
         # hosted=True,
         # format=None,
         # classes=None,
         # overlap=30,
         # stroke=1,
         # labels=False, )
-        preds = detections.json().get("predictions")
+        preds = {} # detections.json().get("predictions")
 
-        # removing image path from predictions
-        for pred in preds:
-            del pred["image_path"]
-
-        # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
+        # # removing image path from predictions
+        # for pred in preds:
+        #     del pred["image_path"]
+        #
+        # # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
-            self.streaming_server.frame = self.annotate_detections(img, preds)
-
-        print("Inference done")
+            self.streaming_server.frame = img #self.annotate_detections(img, preds)
+        #
+        # print("Inference done")
         return preds
 
     def annotate_detections(self, img, preds):
