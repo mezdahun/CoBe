@@ -243,8 +243,8 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
-        #detections = self.detector_model.predict(img, confidence=confidence)
-        # print(detections.json())
+        detections = self.detector_model.predict(img, confidence=confidence)
+        print(detections.json())
         # hosted=True,
         # format=None,
         # classes=None,
