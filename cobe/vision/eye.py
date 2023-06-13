@@ -206,7 +206,7 @@ class CoBeEye(object):
         # resizing image to requested w and h
         img = cv2.resize(imgo, (img_width, img_height))
         # returning image and timestamp
-        return imgo, t_cap
+        return img, t_cap
 
     @expose
     def get_calibration_frame(self, width=None, height=None):
@@ -243,26 +243,28 @@ class CoBeEye(object):
     def inference(self, confidence=40):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=320, img_height=200)
-        print(img.shape)
-        detections = self.detector_model.predict(img, confidence=confidence)
-        print(detections.json())
+        try:
+            detections = self.detector_model.predict(img, confidence=confidence)
+        except KeyError:
+            print("KeyError in roboflow inference code, can mean that your authentication"
+                  "is invalid to the inference server.")
         # hosted=True,
         # format=None,
         # classes=None,
         # overlap=30,
         # stroke=1,
         # labels=False, )
-        preds = {} # detections.json().get("predictions")
+        preds = detections.json().get("predictions")
 
-        # # removing image path from predictions
-        # for pred in preds:
-        #     del pred["image_path"]
-        #
+        # removing image path from predictions
+        for pred in preds:
+            del pred["image_path"]
+
         # # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
-            self.streaming_server.frame = img #self.annotate_detections(img, preds)
+            self.streaming_server.frame = self.annotate_detections(img, preds)
         #
         # print("Inference done")
         return preds
