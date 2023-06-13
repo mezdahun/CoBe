@@ -13,3 +13,8 @@ def shutdown_eyes():
     """Shuts down all eyes"""
     master = CoBeMaster()
     master.shutdown_eyes()
+
+def calibrate():
+    """Calibrates all eyes"""
+    master = CoBeMaster()
+    master.calculate_calibration_maps()
