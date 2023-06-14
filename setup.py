@@ -6,7 +6,7 @@ setup(
     name='CoBe - ScienceOfIntelligence',
     description='Scientific demonstrator to showcase collective behavioral model and to provide a merged environment,'
                 'where robotics, human behavior and simulations meet.',
-    version='0.0.1',
+    version='0.1.0',
     url='https://github.com/mezdahun/CoBe',
     maintainer='David Mezey, David James and Palina Bartashevich @ SCIoI',
     packages=find_packages(exclude=['tests']),
@@ -36,7 +36,9 @@ setup(
                             "cobe-master-start=cobe.app:main",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
-                            "cobe-master-calibrate=cobe.app:calibrate"]
+                            "cobe-master-calibrate=cobe.app:calibrate",
+                            "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
+                            "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
