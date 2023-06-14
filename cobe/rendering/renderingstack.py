@@ -1,18 +1,19 @@
+import base64
 import subprocess
 import socket
 import time
 import cobe.settings.rendersettings as rs
-import psutil
-import base64
+from cobe.tools.filetools import is_process_running
+
 
 class RenderingStack(object):
     """The main class of the CoBe project organizing projection and rendering"""
     def __init__(self):
         # Call the Unity app to open without blocking the thread if it's not open already
-        if not self.is_file_running("CoBe.exe"):
+        if not is_process_running("CoBe.exe"):
             subprocess.Popen(rs.unity_path)
         
-        if not self.is_file_running("Arena.exe"):
+        if not is_process_running("Arena.exe"):
             subprocess.Popen(rs.resolume_path)
 
         # Create the TCP Sender
@@ -68,16 +69,6 @@ class RenderingStack(object):
 
     def remove_image(self):
         self.send_message("0".encode())
-    
-    def is_file_running(self, name: str) -> bool:
-        """Checks if a process is running on the system by comparing the name of each running process"""
-        for pid in psutil.pids():
-            p = psutil.Process(pid)
-            if p.name() == name:
-                # process found
-                return True
-        return False
-
 
 
 # # Testing suite for loading image from disk and passing to Unity

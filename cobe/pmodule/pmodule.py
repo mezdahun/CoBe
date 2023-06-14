@@ -1,6 +1,6 @@
 import os
 from time import sleep
-import psutil
+from cobe.tools.filetools import is_process_running, clear_directory
 import subprocess
 
 root_folder = "C:\\Users\\David\\Documents\\predprey_batches"
@@ -20,9 +20,9 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
     :return: does not return anything"""
 
     print("Clearing volume folder of .json files")
-    clear_directory(f"{root_folder}\\current")
+    clear_directory(f"{os.path.join(ps.root_folder, 'current')}")
 
-    if not is_file_running("Docker Desktop.exe"):
+    if not is_process_running("Docker Desktop.exe"):
         print("Launching Docker")
         subprocess.Popen(docker_path)
         sleep(10)
@@ -42,8 +42,9 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
     os.system(f'cmd /c "docker run --name cont -v {root_folder}://usr/src/myapp/batches -t -d predpreyoriginal:latest  sh run.sh -b {batch_size} -n {num_prey}"')
 
 def entry_cleanup_docker_container():
+    """Stops and removes the docker container of the Pmodule via command line"""
     print("Clearing volume folder of .json files")
-    clear_directory(f"{root_folder}\\current")
+    clear_directory(f"{os.path.join(ps.root_folder, 'current')}")
 
     print("Stopping P-module container...")
     os.system('cmd /c "docker kill cont"')
@@ -52,15 +53,3 @@ def entry_cleanup_docker_container():
     print("Removing P-module container...")
     os.system('cmd /c "docker rm cont"')
 
-def clear_directory(file_path: str):
-    filelist = [ f for f in os.listdir(file_path) if f.endswith(".json") ]
-    for f in filelist:
-        try:
-            os.remove(os.path.join(file_path, f))
-        except:
-            print("Error clearing the volume of .json files")
-
-
-        
-# entry_start_docker_container()
-# entry_cleanup_docker_container()
