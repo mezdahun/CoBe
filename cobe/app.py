@@ -2,7 +2,7 @@ from cobe.cobe.cobemaster import CoBeMaster
 
 def main():
     master = CoBeMaster()
-    master.start()
+    master.start(show_simulation_space=True)
 
 def cleanup_inf_servers():
     """Cleans up the inference servers on all eyes"""
@@ -17,5 +17,6 @@ def shutdown_eyes():
 def calibrate():
     """Test Calibration of all eyes interactively"""
     master = CoBeMaster()
-    master.calibrator.generate_calibration_image(detach=True)
+    #master.calibrator.generate_calibration_image(detach=True)
+    master.project_calibration_image()
     master.calculate_calibration_maps(with_visualization=True, interactive=True, detach=True)
