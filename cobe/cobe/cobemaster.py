@@ -77,30 +77,88 @@ class CoBeMaster(object):
                                                inf_server_url=odmodel.inf_server_url,
                                                version=odmodel.version)
 
-    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False):
+    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True):
         """Calculates the calibration maps for each eye and stores them in the eye dict"""
         retry = [True for i in range(len(self.eyes))]
         eye_i = 0
         for eye_name, eye_dict in self.eyes.items():
-            while retry[eye_i]:
-                # get a single calibration image from every eye object
-                print("Fetching calibration images from eyes...")
-                self.calibrator.fetch_calibration_frames(self.eyes)
-                # detect the aruco marker mesh on the calibration images and save data in eye dicts
-                print("Detecting ARUCO codes...")
-                self.calibrator.detect_ARUCO_codes(self.eyes)
-                # calculate the calibration maps for each eye and store them in the eye dict
-                print("Calculating calibration maps...")
-                self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
-                if interactive:
-                    retry_input = input("press r to retry calibration, or enter to continue...")
-                    if retry_input == "r":
-                        retry[eye_i] = True
+            is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
+            if not is_map_loaded:
+                while retry[eye_i]:
+                    # get a single calibration image from every eye object
+                    print("Fetching calibration images from eyes...")
+                    self.calibrator.fetch_calibration_frames(self.eyes)
+                    # detect the aruco marker mesh on the calibration images and save data in eye dicts
+                    print("Detecting ARUCO codes...")
+                    self.calibrator.detect_ARUCO_codes(self.eyes)
+                    # calculate the calibration maps for each eye and store them in the eye dict
+                    print("Calculating calibration maps...")
+                    self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
+                    if interactive:
+                        retry_input = input("press r to retry calibration, or enter to continue...")
+                        if retry_input == "r":
+                            retry[eye_i] = True
+                        else:
+                            print(f"Calibration results accepted by user for {eye_name}.")
+                            retry[eye_i] = False
                     else:
-                        print(f"Calibration results accepted by user for {eye_name}.")
                         retry[eye_i] = False
-                else:
-                    retry[eye_i] = False
+
+        self.save_calibration_maps()
+
+    def save_calibration_maps(self):
+        """Saves the calibration maps and eye settings for each eye json file"""
+        if not os.path.isdir(self.calib_data_dir):
+            os.makedirs(self.calib_data_dir, exist_ok=True)
+
+        for eye_name, eye_dict in self.eyes.items():
+            file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
+            print(f"Saving calibration map for {eye_name} to {file_path}")
+            eye_dict_to_save = eye_dict.copy()
+            # deleting pyro proxy and detected aruco code from dict as they are not serializable
+            del eye_dict_to_save["pyro_proxy"]
+            if eye_dict_to_save.get("detected_aruco"):
+                del eye_dict_to_save["detected_aruco"]
+            # jsonifying dictionary
+            for k, v in eye_dict_to_save.items():
+                print(k, v)
+                if isinstance(v, np.ndarray):
+                    eye_dict_to_save[k] = v.tolist()
+            # saving json file
+            with open(file_path, "w") as f:
+                json.dump(eye_dict_to_save, f)
+
+    def load_calibration_map(self, eye_name, eye_dict):
+        """Loads the calibration maps and eye settings for each eye json file"""
+        file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
+        if os.path.isfile(file_path):
+            load_map_input = input(f"Calibration map for {eye_name} found in {file_path}. Do you want to load it? (Y/n)")
+            if load_map_input.lower() == "y":
+                print(f"Loading calibration map for {eye_name} from {file_path}")
+                with open(file_path, "r") as f:
+                    loaded_data = json.load(f)
+                    # Loading eye settings from json file
+                    eye_dict["eye_data"] = loaded_data["eye_data"]
+                    # Loading calibration related data from json file
+                    eye_dict["calibration_frame"] = np.array(loaded_data["calibration_frame"])
+                    # # detected aruco codes are not saved in json file, so we need to detect them again
+                    # self.calibrator.detect_ARUCO_codes(eye_dict)
+                    # if eye_dict["calibration_score"] != loaded_data["calibration_score"]:
+                    #     "Calibration score from json file does not match detected calibration score."
+                    eye_dict["calibration_score"] = loaded_data["calibration_score"]
+                    eye_dict["calibration_frame_annot"] = np.array(loaded_data["calibration_frame_annot"])
+                    eye_dict["cmap_xmap_interp"] = np.array(loaded_data["cmap_xmap_interp"])
+                    eye_dict["cmap_ymap_interp"] = np.array(loaded_data["cmap_ymap_interp"])
+                    eye_dict["cmap_x_interp"] = np.array(loaded_data["cmap_x_interp"])
+                    eye_dict["cmap_y_interp"] = np.array(loaded_data["cmap_y_interp"])
+                    eye_dict["cmap_xmap_extrap"] = np.array(loaded_data["cmap_xmap_extrap"])
+                    eye_dict["cmap_ymap_extrap"] = np.array(loaded_data["cmap_ymap_extrap"])
+                    eye_dict["cmap_x_extrap"] = np.array(loaded_data["cmap_x_extrap"])
+                    eye_dict["cmap_y_extrap"] = np.array(loaded_data["cmap_y_extrap"])
+                return True
+            else:
+                print(f"Calibration map for {eye_name} NOT loaded.")
+                return False
 
     def cleanup_inference_servers(self, waitfor=3):
         """Cleans up inference servers on all eyes.
