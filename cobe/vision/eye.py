@@ -20,6 +20,7 @@ from Pyro5.api import expose, behavior, serve, oneway
 from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
+from cobe.tools.detectiontools import annotate_detections
 from cobe.settings import vision
 from cobe.vision import web_vision
 
@@ -67,35 +68,29 @@ class CoBeEye(object):
         self.id = os.getenv("EYE_ID", 0)
         # IP address of the Nano module in the local network
         self.local_ip = get_local_ip_address()
+
         # ObjectDetectionModel instance to carry out predictions on a roboflow server
         self.detector_model = None
         # Docker ID of the roboflow inference server running on the Nano module
         self.inference_server_id = None
+
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
-        # Opening calibration maps
+
+        # Opening fisheye unwarping calibration maps
         self.fisheye_calibration_map = None
         self.map1 = None
         self.map2 = None
-        # creating streaming server for image data
+
+        # creating streaming server for image data (slows stream)
         self.publish_mjpeg_stream = vision.publish_mjpeg_stream
         self.streaming_server = None
         self.streaming_thread = None
         if self.publish_mjpeg_stream:
             self.setup_streaming_server()
 
+        # pyro5 daemon stopping flag
         self._is_running = True
-
-    # # Example of exposing class attributes via Pyro5
-    # @expose
-    # @property
-    # def publish_mjpeg_stream(self):             # exposed as 'proxy.publish_mjpeg_stream' remote attribute
-    #     return self.value
-    #
-    # @expose
-    # @publish_mjpeg_stream.setter
-    # def publish_mjpeg_stream(self, value):      # exposed as 'proxy.publish_mjpeg_stream' writable
-    #     self.publish_mjpeg_stream = value
 
     @expose
     def set_fisheye_calibration_map(self, calibration_map):
@@ -118,7 +113,7 @@ class CoBeEye(object):
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
-        print("Initializing OD Model")
+        print("Initializing object detection model")
         # Definign the object detection model instance
         self.detector_model = ObjectDetectionModel(api_key=api_key,
                                                    name=model_name,
@@ -179,11 +174,6 @@ class CoBeEye(object):
         print(f"ID requested and returned: {self.id}")
         return self.id
 
-    def read_model_parameters(self):
-        """Reading internal parameters of the initialized ObjectDetection Model"""
-        # fill self.OD_model_parameters dictionary with parameters
-        pass
-
     def get_frame(self, img_width, img_height):
         """getting single camera frame according to stream parameters and resizing it to desired dimensions"""
         if self.map1 is None and self.fisheye_calibration_map is not None:
@@ -243,17 +233,13 @@ class CoBeEye(object):
     def inference(self, confidence=40, img_width=320, img_height=200):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
+
         try:
             detections = self.detector_model.predict(img, confidence=confidence)
         except KeyError:
             print("KeyError in roboflow inference code, can mean that your authentication"
                   "is invalid to the inference server.")
-        # hosted=True,
-        # format=None,
-        # classes=None,
-        # overlap=30,
-        # stroke=1,
-        # labels=False, )
+
         preds = detections.json().get("predictions")
 
         # removing image path from predictions
@@ -264,27 +250,9 @@ class CoBeEye(object):
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
-            self.streaming_server.frame = self.annotate_detections(img, preds)
-        #
-        # print("Inference done")
-        return preds
+            self.streaming_server.frame = annotate_detections(img, preds)
 
-    def annotate_detections(self, img, preds):
-        """Annotating the image with bounding boxes and labels"""
-        for pred in preds:
-            # getting bounding box coordinates
-            print(img.shape)
-            xmin = max(int(pred["x"] - (pred["width"] / 2)), 0)
-            xmax = min(int(xmin + pred["width"]), img.shape[1])
-            ymin = max(int(pred["y"] - (pred["height"] / 2)), 0)
-            ymax = min(int(ymin + pred["height"]), img.shape[0])
-            # getting label
-            label = pred["class"] + " " + str(round(pred["confidence"], 2))
-            # drawing bounding box
-            cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
-            # adding label
-            cv2.putText(img, label, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
-        return img
+        return preds
 
 
 def main(host="localhost", port=9090):
