@@ -1,8 +1,7 @@
 import subprocess
 import socket
 import time
-import cobe.rendering.rendersettings as rs
-# import rendersettings as rs
+import cobe.settings.rendersettings as rs
 import psutil
 import base64
 
