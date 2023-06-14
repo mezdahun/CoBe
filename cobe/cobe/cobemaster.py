@@ -33,6 +33,12 @@ class CoBeMaster(object):
         self.eyes = self.create_eye_objects()
         # create calibration object for the run
         self.calibrator = CoBeCalib()
+        # path of current files directory's parent directory
+        self.file_dir_path = os.path.dirname(os.path.abspath(__file__))
+        # parent directory
+        self.cobe_root_dir = os.path.abspath(os.path.join(self.file_dir_path, os.pardir))
+        # calib data dir
+        self.calib_data_dir = os.path.join(self.cobe_root_dir, "settings", "calibration_data")
         # requesting master password for nanos
         self.nano_password = getpass("To start inference server on Nano, please enter the admin password:")
 
