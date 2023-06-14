@@ -11,16 +11,18 @@ They
     - can pass final coordinate results to the projection stack via Unity
 
 """
+import os
 import timeit
 import cv2
+import json
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.tri as tri
+
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel, aruco, vision
 from time import sleep
-import matplotlib.pyplot as plt
-import matplotlib.tri as tri
 from getpass import getpass
-from pyzbar.pyzbar import decode
 from scipy.interpolate import Rbf
 
 
