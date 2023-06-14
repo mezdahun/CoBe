@@ -6,6 +6,7 @@ import psutil
 import base64
 
 class RenderingStack(object):
+    """The main class of the CoBe project organizing projection and rendering"""
     def __init__(self):
         # Call the Unity app to open without blocking the thread if it's not open already
         if not self.is_file_running("CoBe.exe"):
@@ -69,9 +70,11 @@ class RenderingStack(object):
         self.send_message("0".encode())
     
     def is_file_running(self, name: str) -> bool:
+        """Checks if a process is running on the system by comparing the name of each running process"""
         for pid in psutil.pids():
             p = psutil.Process(pid)
             if p.name() == name:
+                # process found
                 return True
         return False
 
