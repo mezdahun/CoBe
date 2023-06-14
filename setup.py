@@ -6,7 +6,7 @@ setup(
     name='CoBe - ScienceOfIntelligence',
     description='Scientific demonstrator to showcase collective behavioral model and to provide a merged environment,'
                 'where robotics, human behavior and simulations meet.',
-    version='0.0.1',
+    version='0.1.0',
     url='https://github.com/mezdahun/CoBe',
     maintainer='David Mezey, David James and Palina Bartashevich @ SCIoI',
     packages=find_packages(exclude=['tests']),
@@ -23,13 +23,22 @@ setup(
             'flake8',
             'pytest',
             'pytest-cov'
+        ],
+        'cobe-master': [
+            'pyzbar',  # for QR code reading, on non-windows system additional steps needed
+            'opencv-python==4.7.0.72',
+            'matplotlib',
+            'scipy'
         ]
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
-                            "cobe_master_start=cobe.app:main",
-                            "cobe-start-pmodule-docker=cobe.pmodule.pmodule:entry_start_docker_container",
-                            "cobe-stop-pmodule-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
+                            "cobe-master-start=cobe.app:main",
+                            "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
+                            "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
+                            "cobe-master-calibrate=cobe.app:calibrate",
+                            "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
+                            "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
