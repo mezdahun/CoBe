@@ -341,7 +341,6 @@ class CoBeCalib(object):
     projector stack via Resolume"""
 
     def __init__(self):
-        """Constructor, initializing resolume interface"""
         pass
 
     def fetch_calibration_frames(self, eyes):
@@ -603,33 +602,3 @@ class CoBeCalib(object):
             return calibration_image
 
         # todo: save image or send to projection stack
-
-    def map_point(self, point, calibration_matrix):
-        """Maps a point according to a calibration matrix
-        :param point: point to be mapped
-        :param calibration_matrix: calibration matrix for the eye"""
-        # map point according to calibration matrix
-        # Apply the transformation to a point (e.g., (x1, y1))
-        result_point = np.dot(calibration_matrix, np.array([[point[0]], [point[1]], [1]]))
-        mapped_point = (result_point[0, 0], result_point[1, 0])
-        return mapped_point
-
-    def detect_qr_codes(self, calibration_frame):
-        """Detecting QR codes on an image using pyzbar"""
-        qr_codes = decode(calibration_frame)
-        print(f"Found {len(qr_codes)} QR codes on calibration frame")
-        found_codes = {}
-        for qr in qr_codes:
-            found_codes[qr.data.decode("utf-8")] = {"orientation": qr.orientation,
-                                                    "rect": qr.rect,
-                                                    "center": (qr.rect.left + qr.rect.width / 2,
-                                                               qr.rect.top + qr.rect.height / 2)}
-        return found_codes
-
-    def remap_inference_results(self, inference_results, calibration_map):
-        """Remaps inference results according to calibration matrix
-        :param inference_results: inference results from eye
-        :param calibration_map: calibration matrix for the eye"""
-        # remap inference results according to calibration matrix
-        # return remapped inference results
-        return inference_results
