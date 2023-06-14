@@ -178,25 +178,74 @@ class CoBeMaster(object):
 
                     plt.pause(0.001)
 
-    def start(self):
+    def start(self, show_simulation_space=True):
         """Starts the main action loop of the CoBe project"""
         self.initialize_object_detectors()
         # at this point eyes are ready for traffic
         # calibrating eyes before starting
         self.calibrator.generate_calibration_image(detach=True)
         self.calculate_calibration_maps(with_visualization=True, interactive=True, detach=True)
+        if show_simulation_space:
+            chosen_eye = "eye_0"
+            plt.ion()
+            fig, (axcam, axreal) = plt.subplots(ncols=2)
+            fig.canvas.draw()
+
+            aruco_image = self.calibrator.generate_calibration_image(return_image=True)
+
+            # Showing the recorded calibration frame to visualize camera space
+            plt.axes(axcam)
+            plt.imshow(self.eyes[chosen_eye]["calibration_frame_annot"], origin='upper')
+            plt.title("Calibration frame with ARUCO detections")
+
+            # Showing the calibration image with the ARUCO codes to visualize camera space
+            plt.axes(axreal)
+            plt.imshow(aruco_image, cmap='gray', origin='upper')
+            plt.title("Original calibration image on simulation space")
+
+            xs = np.arange(0, vision.capture_width, 50)
+            ys = np.arange(0, vision.capture_height, 50)
+
         # todo save and load calibration maps by default
+        inf_img_width, inf_img_height = 320, 200
         try:
             try:
                 num_iterations = 300
                 for frid in range(num_iterations):
                     for eye_name, eye_dict in self.eyes.items():
                         try:
-                            detections = eye_dict["pyro_proxy"].inference(confidence=20)
+                            detections = eye_dict["pyro_proxy"].inference(confidence=20, img_width=320, img_height=200)
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 for detection in detections:
                                     xcam, ycam = detection["x"], detection["y"]
+                                    # scaling up the coordinates to the original calibration image size
+                                    xcam, ycam = xcam * (vision.capture_width / inf_img_width), ycam * (
+                                                         vision.capture_height / inf_img_height)
                                     xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
+                                    if show_simulation_space:
+                                        if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                                            xreal, yreal = 0, 0
+                                        if xreal != 0 and yreal != 0:
+                                            axcam.clear()
+                                            axreal.clear()
+
+                                            plt.axes(axcam)
+                                            plt.scatter(xcam, ycam, c='r', marker='o')
+                                            plt.title("Camera space")
+                                            plt.xlim(0, vision.capture_width)
+                                            plt.ylim(0, vision.capture_height)
+
+                                            plt.axes(axreal)
+                                            plt.scatter(xreal, yreal, c='r', marker='o', s=80)
+                                            plt.title("Simulation space")
+                                            plt.xlim(0, aruco.proj_calib_image_width)
+                                            plt.ylim(0, aruco.proj_calib_image_width)
+
+                                            plt.pause(0.001)
+
+                                    # scaling back down to the inference image size
+                                    xreal, yreal = xreal * (inf_img_width / vision.capture_width), yreal * (
+                                                            inf_img_height / vision.capture_height)
                                     print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
