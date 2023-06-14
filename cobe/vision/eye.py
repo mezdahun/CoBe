@@ -240,9 +240,9 @@ class CoBeEye(object):
         self._is_running = False
 
     @expose
-    def inference(self, confidence=40):
+    def inference(self, confidence=40, img_width=320, img_height=200):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
-        img, t_cap = self.get_frame(img_width=320, img_height=200)
+        img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
         try:
             detections = self.detector_model.predict(img, confidence=confidence)
         except KeyError:
