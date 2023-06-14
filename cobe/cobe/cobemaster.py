@@ -143,7 +143,7 @@ class CoBeMaster(object):
 
         # Showing the recorded calibration frame to visualize camera space
         plt.axes(axcam)
-        plt.imshow(self.eyes["eye_0"]["calibration_frame_annot"])
+        plt.imshow(self.eyes[eye_name]["calibration_frame_annot"])
         plt.title("Calibration frame with ARUCO detections")
 
         # Showing the calibration image with the ARUCO codes to visualize camera space
