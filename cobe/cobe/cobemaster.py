@@ -69,18 +69,30 @@ class CoBeMaster(object):
                                                inf_server_url=odmodel.inf_server_url,
                                                version=odmodel.version)
 
-    def calculate_calibration_maps(self, with_visualization=False):
+    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False):
         """Calculates the calibration maps for each eye and stores them in the eye dict"""
+        retry = [True for i in range(len(self.eyes))]
+        eye_i = 0
         for eye_name, eye_dict in self.eyes.items():
-            # get a single calibration image from every eye object
-            print("Fetching calibration images from eyes...")
-            self.calibrator.fetch_calibration_frames(self.eyes)
-            # detect the aruco marker mesh on the calibration images and save data in eye dicts
-            print("Detecting ARUCO codes...")
-            self.calibrator.detect_ARUCO_codes(self.eyes)
-            # calculate the calibration maps for each eye and store them in the eye dict
-            print("Calculating calibration maps...")
-            self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization)
+            while retry[eye_i]:
+                # get a single calibration image from every eye object
+                print("Fetching calibration images from eyes...")
+                self.calibrator.fetch_calibration_frames(self.eyes)
+                # detect the aruco marker mesh on the calibration images and save data in eye dicts
+                print("Detecting ARUCO codes...")
+                self.calibrator.detect_ARUCO_codes(self.eyes)
+                # calculate the calibration maps for each eye and store them in the eye dict
+                print("Calculating calibration maps...")
+                self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
+                if interactive:
+                    retry_input = input("press r to retry calibration, or enter to continue...")
+                    if retry_input == "r":
+                        retry[eye_i] = True
+                    else:
+                        print(f"Calibration results accepted by user for {eye_name}.")
+                        retry[eye_i] = False
+                else:
+                    retry[eye_i] = False
 
     def cleanup_inference_servers(self, waitfor=3):
         """Cleans up inference servers on all eyes.
@@ -170,14 +182,22 @@ class CoBeMaster(object):
         """Starts the main action loop of the CoBe project"""
         self.initialize_object_detectors()
         # at this point eyes are ready for traffic
+        # calibrating eyes before starting
+        self.calibrator.generate_calibration_image(detach=True)
+        self.calculate_calibration_maps(with_visualization=True, interactive=True, detach=True)
+        # todo save and load calibration maps by default
         try:
             try:
-                for eye_name, eye_dict in self.eyes.items():
-                    for frid in range(5):
-                        num_iterations = 300
+                num_iterations = 300
+                for frid in range(num_iterations):
+                    for eye_name, eye_dict in self.eyes.items():
                         try:
                             detections = eye_dict["pyro_proxy"].inference(confidence=20)
-                            print(detections)
+                            if eye_dict.get("cmap_xmap_interp") is not None:
+                                for detection in detections:
+                                    xcam, ycam = detection["x"], detection["y"]
+                                    xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
+                                    print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 print("Connection error: Inference server is probably not yet started properly. "
@@ -196,24 +216,9 @@ class CoBeMaster(object):
         except KeyboardInterrupt:
             print("Cleaning up inference servers...")
 
-        # for eye_name, eye_dict in self.eyes.items():
-        #     # stop docker servers
-        #     sleep(3)
-        #     eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
-        #     # waiting for docker to stop the container
-        #     sleep(3)
-        #     eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
+        # todo: decide on cleaning up inference servers here or in the cleanup function
 
-        #     eye_dict["inference_results"] = eye_dict["pyro_proxy"].get_inference_results()
-        # # remap inference results according to calibration matrices
-        # for eye_name, eye_dict in self.eyes.items():
-        #     eye_dict["remapped_inference_results"] = self.calibrator.remap_inference_results(
-        #         eye_dict["inference_results"], eye_dict["calibration_map"])
-        # # call Pmodule and consume results
-        # self.call_pmodule()
-        # agent_coordinates = self.consume_pmodule_results()
-        # # pass final results to projection stack via Unity
-        # self.pass_results_to_projection_stack(agent_coordinates)
+        # todo: include remapping
 
 
 class CoBeCalib(object):
@@ -265,7 +270,7 @@ class CoBeCalib(object):
                 cv2.destroyAllWindows()
                 cv2.waitKey(1)
 
-    def interpolate_xy_maps(self, eyes, with_visualization=False):
+    def interpolate_xy_maps(self, eyes, with_visualization=False, detach=False):
         """Generating a map of xy coordinate maps for each eye that maps any pixel of the camera to the corresponding
         pixel of the projector. This is done by interpolating the xy detections of ARUCO codes in the calibration frames
         of the eyes."""
@@ -415,7 +420,7 @@ class CoBeCalib(object):
 
                 # using tight layout
                 plt.tight_layout()
-                plt.show()
+                plt.show(block=not detach)
 
     def extrapolate_xy_maps_scipy(self, eyes):
         """Not only interpolating real xy coordinates of the projector for each pixel of the camera, but also
@@ -456,7 +461,7 @@ class CoBeCalib(object):
             ax.scatter3D(xnew, ynew, znew)
             plt.show()
 
-    def generate_calibration_image(self, return_image=False):
+    def generate_calibration_image(self, return_image=False, detach=False):
         """Generates an image with ARUCO codes encoding the x,y coordinates of the real space/arena."""
         aruco_dict = aruco.aruco_dict  # dictionary of the code convention
         aruco_parameters = aruco.aruco_params  # detector parameters
@@ -478,7 +483,7 @@ class CoBeCalib(object):
 
             # show image with matplotlib
             plt.imshow(img, cmap="gray")
-            plt.show()
+            plt.show(block=not detach)
         else:
             return calibration_image
 
