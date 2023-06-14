@@ -109,6 +109,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+cobe_env/
 
 # Spyder project settings
 .spyderproject
@@ -127,14 +128,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-cobe_env/pyvenv.cfg
-cobe_env/Scripts/activate
-cobe_env/Scripts/activate.bat
-cobe_env/Scripts/Activate.ps1
-cobe_env/Scripts/deactivate.bat
-cobe_env/Scripts/f2py.exe
-cobe_env/Scripts/pip.exe
-cobe_env/Scripts/pip3.11.exe
-cobe_env/Scripts/pip3.exe
-cobe_env/Scripts/python.exe
-cobe_env/Scripts/pythonw.exe
+
