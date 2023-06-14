@@ -4,15 +4,6 @@ from cobe.tools.filetools import is_process_running, clear_directory
 import subprocess
 import cobe.settings.pmodulesettings as ps
 
-root_folder = "C:\\Users\\David\\Documents\\predprey_batches"
-docker_path = "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"
-
-def is_file_running(name: str) -> bool:
-    for pid in psutil.pids():
-        p = psutil.Process(pid)
-        if p.name() == name:
-            return True
-    return False
 
 def entry_start_docker_container(batch_size=4, num_prey=50):
     """Starts the docker container of the Pmodule via command line
