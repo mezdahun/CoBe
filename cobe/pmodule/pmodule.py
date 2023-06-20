@@ -21,25 +21,42 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
     else:
         print("Docker already running")
 
-    print("Loading P-module docker image")
-    try:
-        # First attempt to clear any image that exists by the same name
-        os.system(f'cmd /c "docker image rm {ps.docker_image_name}"')
-    except:
-        print("Couldn't remove image, probably doesn't exist [Pmodule:entry_start_docker_container]]")
-        pass
+    continue_initialization = True
 
-    tar_path = os.path.join(ps.root_folder, "docker.tar")
-    if os.path.isfile(tar_path):
-        os.system(f'cmd /c "docker load -i {tar_path}"')
-    else:
-        raise Exception("Docker image not found under path: " + tar_path)
+    # Check if any containers are actively using an image by the name of our target image
+    # https://stackoverflow.com/questions/31288830/find-the-docker-containers-using-an-image
+    containers_using_image = (subprocess.check_output(f'cmd /c \"docker container ls --all --filter=ancestor={ps.docker_image_name} --format \"{{{{.ID}}}}\"\"', shell=True)).splitlines()
+    for container in containers_using_image:
+        decoded_id = container.decode()
+        if decoded_id:
+            # If there are any, are those containers running?
+            running_container_using_image = subprocess.check_output(f'cmd /c \"docker container inspect -f \'{{{{.State.Running}}}}\' {decoded_id}\"', shell=True)
+            if running_container_using_image.decode().find('true'):
+                # If so, then the PModule is already running, or a version of it is at least.
+                print("It looks like the PModule is already running. Skipping the rest of the initialization")
+                continue_initialization = False
+                break
 
-    print("Starting P-module docker container")
-    os.system(
-        f'cmd /c "docker run --name cont '
-        f'-v {ps.root_folder}:{ps.root_folder_on_container} '
-        f'-t -d {ps.docker_image_name} sh run.sh -b {batch_size} -n {num_prey}"')
+    if continue_initialization:
+        print("Loading P-module docker image")
+        try:
+            # First attempt to clear any image that exists by the same name
+            os.system(f'cmd /c "docker image rm {ps.docker_image_name}"')
+        except:
+            print("Couldn't remove image, probably doesn't exist [Pmodule:entry_start_docker_container]]")
+            pass
+
+        tar_path = os.path.join(ps.root_folder, "docker.tar")
+        if os.path.isfile(tar_path):
+            os.system(f'cmd /c "docker load -i {tar_path}"')
+        else:
+            raise Exception("Docker image not found under path: " + tar_path)
+
+        print("Starting P-module docker container")
+        os.system(
+            f'cmd /c "docker run --name cont '
+            f'-v {ps.root_folder}:{ps.root_folder_on_container} '
+            f'-t -d {ps.docker_image_name} sh run.sh -b {batch_size} -n {num_prey}"')
 
 
 def entry_cleanup_docker_container():
@@ -53,4 +70,3 @@ def entry_cleanup_docker_container():
 
     print("Removing P-module container...")
     os.system('cmd /c "docker rm cont"')
-

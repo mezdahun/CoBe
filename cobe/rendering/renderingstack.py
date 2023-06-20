@@ -8,16 +8,29 @@ from cobe.tools.filetools import is_process_running
 
 class RenderingStack(object):
     """The main class of the CoBe project organizing projection and rendering"""
-    def __init__(self):
-        # Call the Unity app to open without blocking the thread if it's not open already
-        if not is_process_running("CoBe.exe"):
-            subprocess.Popen(rs.unity_path)
-        
-        if not is_process_running("Arena.exe"):
-            subprocess.Popen(rs.resolume_path)
 
-        # Create the TCP Sender
-        self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
+    def __init__(self):
+        unity_open = is_process_running("CoBe.exe")
+        resolume_open = is_process_running("Arena.exe")
+
+        # Call the Unity app to open without blocking the thread if it's not open already
+        if not unity_open:
+            subprocess.Popen(rs.unity_path)
+        else:
+            print("CoBe already running")
+        
+        # Call the Resolume app to open without blocking the thread if it's not open already
+        if not resolume_open:
+            subprocess.Popen(rs.resolume_path)
+        else:
+            print("Resolume already running")
+
+        # Label the instance TCP Sender
+        # Moving the creation into the send_message() method ensures that it's only created if needed
+        self.sender = None
+
+        if not unity_open or not resolume_open:
+            time.sleep(rs.start_up_delay)
 
     def create_tcp_sender(self, ip_address: str, port: int) -> socket.socket:
         """Creates a TCP Client object and attempts to connect to the socket specified by the method arguments
@@ -48,6 +61,9 @@ class RenderingStack(object):
         Returns:
             bool: Whether the message was successfully communicated or not
         """
+        if not self.sender:
+            self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
+
         try:
             if self.sender.sendall(byte_object) is None:
                 return True
@@ -69,13 +85,3 @@ class RenderingStack(object):
 
     def remove_image(self):
         self.send_message("0".encode())
-
-
-# # Testing suite for loading image from disk and passing to Unity
-# image_file_path = "C:\\Users\\David\\Pictures\\test_image2.jpeg"
-# rs = RenderingStack()
-# with open(image_file_path, "rb") as image:
-#     rs.display_image(image.read())
-
-# rs.remove_image()
-
