@@ -8,4 +8,4 @@ ip_address = "127.0.0.1"
 port = 13000
 
 # Other
-start_up_delay = 7
+start_up_delay = 3
