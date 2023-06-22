@@ -4,33 +4,65 @@ import socket
 import time
 import cobe.settings.rendersettings as rs
 from cobe.tools.filetools import is_process_running
+import psutil
 
 
 class RenderingStack(object):
     """The main class of the CoBe project organizing projection and rendering"""
 
     def __init__(self):
-        unity_open = is_process_running("CoBe.exe")
-        resolume_open = is_process_running("Arena.exe")
-
-        # Call the Unity app to open without blocking the thread if it's not open already
-        if not unity_open:
-            subprocess.Popen(rs.unity_path)
-        else:
-            print("CoBe already running")
-        
-        # Call the Resolume app to open without blocking the thread if it's not open already
-        if not resolume_open:
-            subprocess.Popen(rs.resolume_path)
-        else:
-            print("Resolume already running")
-
         # Label the instance TCP Sender
         # Moving the creation into the send_message() method ensures that it's only created if needed
         self.sender = None
+        self.unity_process = None
+        self.resolume_process = None
+    
+    def close_apps(self):
+        # If the process is already stored, just terminate it
+        if self.unity_process:
+            self.unity_process.terminate()
+        else:
+            # If the process isn't stored, but is found, terminate that process
+            unity_pid = is_process_running("CoBe.exe")
+            if unity_pid:
+                self.unity_process = psutil.Process(unity_pid)
+                self.unity_process.terminate()
 
-        if not unity_open or not resolume_open:
-            time.sleep(rs.start_up_delay)
+        self.unity_process = None
+        
+        if self.resolume_process:
+            self.resolume_process.terminate()
+        else:
+            resolume_pid = is_process_running("Arena.exe")
+            if resolume_pid:
+                self.resolume_process = psutil.Process(resolume_pid)
+                self.resolume_process.terminate()
+        
+        self.resolume_process = None
+
+    def open_apps(self):
+        # if the process isn't stored, see if it's running
+        if not self.unity_process:
+            unity_pid = is_process_running("CoBe.exe")
+
+            # if process is already running then store it
+            if unity_pid:
+                print("CoBe already running")
+                self.unity_process = psutil.Process(unity_pid)
+            else:
+                # otherwise, open it and store that process
+                self.unity_process = subprocess.Popen(rs.unity_path)
+                time.sleep(rs.start_up_delay)
+        
+        if not self.resolume_process:
+            resolume_pid = is_process_running("Arena.exe")
+
+            if resolume_pid:
+                print("Resolume already running")
+                self.resolume_process = psutil.Process(resolume_pid)
+            else:
+                self.resolume_process = subprocess.Popen(rs.resolume_path)
+                time.sleep(rs.start_up_delay)
 
     def create_tcp_sender(self, ip_address: str, port: int) -> socket.socket:
         """Creates a TCP Client object and attempts to connect to the socket specified by the method arguments
@@ -82,6 +114,8 @@ class RenderingStack(object):
         """
         converted_string = base64.b64encode(byte_array)
         self.send_message(converted_string)
+        print("Sent TCP command to display image")
 
     def remove_image(self):
         self.send_message("0".encode())
+        print("Sent TCP command to remove image")

@@ -1,6 +1,7 @@
 # folder to save batch json files on host
 root_folder = "C:\\Users\\David\\Documents\\predprey_batches"
-# foder to save batch json files on docker container
+
+# folder to save batch json files on docker container
 root_folder_on_container = "//usr/src/myapp/batches"
 
 # path of docker executable on windows
