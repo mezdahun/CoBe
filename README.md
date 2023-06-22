@@ -1,6 +1,18 @@
 # CoBe
 Scientific demonstrator for showcasing collective behavior
 
+## On-site Set-up
+### Computer
+Make sure the the power bar to the computer is switched off when the computer or affiliate equipment is not in use for security reasons.
+
+### Projectors
+For the physical on-site set-up at TU, the projectors still need to be turned on and off manually. The projectors should always be disturbed as LITTLE as possible, otherwise the projection mapping will be thrown off completely.
+
+There is a table next to one tower, and a cabinet next to the other than can be scaled to get to the projectors' on/off buttons. Note that these structures are intentionally positioned to not be physically in contact with the towers (so that climbing onto them doesn't disturb the tower structure and associatively, the projector).
+
+To turn on a projector, click the power button once.
+To turn off a projector, click the power button twice.
+
 ## Use of Rendering Stack and PModule
 The functional code to run the installation up to its current level of deployment (22.06.2023) is located in the samplerun.py file. There are four methods which together launch the entire stack.
 

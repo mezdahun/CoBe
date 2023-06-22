@@ -23,8 +23,8 @@ class SampleRun():
         # Removes any image if there is one projected
         self.rendering_stack.remove_image()
 
-# sample = SampleRun() # Initialize an instance
+sample = SampleRun() # Initialize an instance
 # sample.start_everything() # starts everything
 # sample.project_image() # projects image at filepath in rendersettings.py, expects 4k. Subsequent calls replace the existing image
 # sample.remove_image() # removes any image that is currently displayed, if any
-# sample.stop_everything() # stops everything
+sample.stop_everything() # stops everything
