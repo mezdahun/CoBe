@@ -51,16 +51,16 @@ To correct the projection mapping alignments of the border, one must navigate to
     Output: How these slices should be transformed or rotated according to our needs
 
 #### Workflow for Projection Mapping
-1) Input slices are probably fine
-2) Navigate to the output tab
-3) For each slice, disable the "soft edge" radio button: this will disable edge blending so that you can see the full image from each projector, and accordingly, see the full mismatch
-4) Use the project_image() method from the CoBe codebase to display an image for calibration, such as a grid, or a series of circles (so that you can also see the localized mismatches)
-5) Choose a slice to work with from the menu on the left, and click on it
-6) Use the output tools along the top bar: "Edit Points" or "Transform" to realign the chosen slice as desired. Transforms are really simple and effective for scaling, but for everything else, the magic really happens within the "Edit Points" menu
-    6.1) Click the Edit Points button on the top bar
-    6.2) Click on a node of the projected arena and move it at random with the mouse while looking at the projection on the floor to see which corner you're dragging (to orient yourself). Undo with ctrl + z after.
-    6.3) Find your way to the area of the floor projection you're interested in by repeating step 6.2) until you find the closest node
-    6.4) Alter the mapping by dragging and dropping the node with the mouse directly, as desired, or click on the node and make more fine-tuned changes with the +/- buttons of the X and Y fields of the Warping menu. Note that these fields only appear in the menu if a node is selected, and are specific to that node
-    6.5) If the changes to a given node cause mapping issues in another area of the projection, maybe an additional nodal subdivision is necessary. This can be controlled by manipulating the "Subdivisions X" and "Subdivisions Y" fields of the Warping menu
-7) When finished, press the "Save & Close" button at the bottom right of the window
-8) Changes will be applied
+1. Input slices are probably fine
+2. Navigate to the output tab
+3. For each slice, disable the "soft edge" radio button: this will disable edge blending so that you can see the full image from each projector, and accordingly, see the full mismatch
+4. Use the project_image() method from the CoBe codebase to display an image for calibration, such as a grid, or a series of circles (so that you can also see the localized mismatches)
+5. Choose a slice to work with from the menu on the left, and click on it
+6. Use the output tools along the top bar: "Edit Points" or "Transform" to realign the chosen slice as desired. Transforms are really simple and effective for scaling, but for everything else, the magic really happens within the "Edit Points" menu
+    6.1. Click the Edit Points button on the top bar
+    6.2. Click on a node of the projected arena and move it at random with the mouse while looking at the projection on the floor to see which corner you're dragging (to orient yourself). Undo with ctrl + z after.
+    6.3. Find your way to the area of the floor projection you're interested in by repeating step 6.2) until you find the closest node
+    6.4. Alter the mapping by dragging and dropping the node with the mouse directly, as desired, or click on the node and make more fine-tuned changes with the +/- buttons of the X and Y fields of the Warping menu. Note that these fields only appear in the menu if a node is selected, and are specific to that node
+    6.5. If the changes to a given node cause mapping issues in another area of the projection, maybe an additional nodal subdivision is necessary. This can be controlled by manipulating the "Subdivisions X" and "Subdivisions Y" fields of the Warping menu
+7. When finished, press the "Save & Close" button at the bottom right of the window
+8. Changes will be applied
