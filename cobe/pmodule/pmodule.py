@@ -12,7 +12,7 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
     :return: does not return anything"""
 
     print("Clearing volume folder of .json files")
-    clear_directory(f"{os.path.join(ps.root_folder, 'current')}")
+    clear_directory(f"{os.path.join(ps.root_folder, ps.output_folder)}")
 
     if not is_process_running("Docker Desktop.exe"):
         print("Launching Docker")
@@ -46,7 +46,7 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
             print("Couldn't remove image, probably doesn't exist [Pmodule:entry_start_docker_container]]")
             pass
 
-        tar_path = os.path.join(ps.root_folder, "docker.tar")
+        tar_path = os.path.join(ps.root_folder, ps.tar_file)
         if os.path.isfile(tar_path):
             os.system(f'cmd /c "docker load -i {tar_path}"')
         else:
