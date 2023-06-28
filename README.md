@@ -54,8 +54,8 @@ Will remove any displayed image, if there is one, or do nothing otherwise.
 
 ## Resolume
 Resolume uses layers which when added together, create a composition, which is the final output. Currently:
-    Layer 2: SpoutSender --> The Unity output
-    Layer 1: Drone footage of water
+- Layer 1: Drone footage of water
+- Layer 2: SpoutSender --> The Unity output
 
 These layer are mixed together, and their individual opacities can be controlled by playing with the layer's respective "V" slider (in green).
 
@@ -63,8 +63,8 @@ These layer are mixed together, and their individual opacities can be controlled
 
 ### Projection Mapping
 To correct the projection mapping alignments of the border, one must navigate to the top-bar, output --> advanced, opening the advanced mapping menu. On the far left, we see the individual projectors and the slices for each projector. Along the top, we see the input and output tabs.
-    Input: The slices that each respective projector sees. This can be made explicit by clicking on the slices under each projector headed in the left-most menu
-    Output: How these slices should be transformed or rotated according to our needs
+- Input: The slices that each respective projector sees. This can be made explicit by clicking on the slices under each projector headed in the left-most menu
+- Output: How these slices should be transformed or rotated according to our needs
 
 #### Workflow for Projection Mapping
 1. Input slices are probably fine
