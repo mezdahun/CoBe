@@ -1,5 +1,10 @@
 from cobe.cobe.cobemaster import CoBeMaster
 
+def test_stream():
+    """Test streaming of all eyes"""
+    master = CoBeMaster()
+    master.start_test_stream()
+
 def main():
     master = CoBeMaster()
     master.start()

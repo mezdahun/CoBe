@@ -244,6 +244,15 @@ class CoBeMaster(object):
 
                     plt.pause(0.001)
 
+    def start_test_stream(self, t=300):
+        """Starting a test stream on all eyes for t iterations"""
+        for it in range(t):
+            for eye_name, eye_dict in self.eyes.items():
+                # getting calibration frame and publishing on the streaming server
+                eye_dict["pyro_proxy"].get_calibration_frame(width=300, height=200)
+
+
+
     def start(self, show_simulation_space=True):
         """Starts the main action loop of the CoBe project"""
         self.initialize_object_detectors()

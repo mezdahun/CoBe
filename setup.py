@@ -37,6 +37,7 @@ setup(
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
                             "cobe-master-calibrate=cobe.app:calibrate",
+                            "cobe-master-test-stream=cobe.app:test_stream",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
