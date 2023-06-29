@@ -42,12 +42,13 @@ def gstreamer_pipeline(
             "video/x-raw(memory:NVMM), "
             "width=1280, height=720, "
             "format=(string)NV12, framerate=(fraction)%d/1 ! "
-            "nvvidconv left=140 right=1140 top=60 bottom=660 ! "
+            "nvvidconv flip-method=%d left=140 right=1140 top=60 bottom=660 ! "
             "video/x-raw, width=1000, height=600, format=(string)BGRx ! "
             "videoconvert ! "
             "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
             % (
-                framerate
+                framerate,
+                flip_method
             )
     )
 
