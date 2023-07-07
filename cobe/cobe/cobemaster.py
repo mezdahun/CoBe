@@ -13,6 +13,8 @@ They
 """
 import os
 import timeit
+from datetime import datetime
+
 import cv2
 import json
 import numpy as np
@@ -248,8 +250,53 @@ class CoBeMaster(object):
         """Starting a test stream on all eyes for t iterations"""
         for it in range(t):
             for eye_name, eye_dict in self.eyes.items():
+                # timing framerate of calibration frames
+                start_time = datetime.now()
                 # getting calibration frame and publishing on the streaming server
-                eye_dict["pyro_proxy"].get_calibration_frame(width=300, height=200)
+                eye_dict["pyro_proxy"].get_calibration_frame()
+                # timing framerate of calibration frames
+                end_time = datetime.now()
+                delta_time = end_time - start_time
+                # print FPS with overwriting previous line
+                print(f"FPS~ on eye {eye_name}: ", int(1 / delta_time.total_seconds()))
+
+    def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0"):
+        """Collecting and saving images from all eyes when s button is pressed. Quitting when q button is pressed."""
+        # path of current file
+        file_path = os.path.dirname(os.path.realpath(__file__))
+        # path of current directory
+        dir_path = os.path.dirname(file_path)
+        # path of parent directory
+        root_path = os.path.dirname(dir_path)
+        save_path = os.path.join(root_path, "data", "calibration_images")
+        # create directory if it does not exist
+        if not os.path.exists(save_path):
+            os.makedirs(save_path, exist_ok=True)
+
+        from pynput import keyboard
+
+        for it in range(t_max):
+            for eye_name, eye_dict in self.eyes.items():
+                if eye_name == target_eye_name:
+                    # check if s button is pressed
+                    eye_dict["pyro_proxy"].get_calibration_frame()
+                    # The event listener will be running in this block
+                    # The event listener will be running in this block
+                    with keyboard.Events() as events:
+                        # Block at most one second
+                        event = events.get(0.1)
+                        if event is None:
+                            pass
+                        elif event.key == keyboard.Key.esc:
+                            print("Quitting")
+                            return
+                        elif event.key == keyboard.Key.space:
+                            # saving frame as image
+                            cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
+                            ret, frame = cap.read()
+                            cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
+                            print(f"Saved image {eye_name}_{it}.png")
+        print("Finished collecting images")
 
 
 

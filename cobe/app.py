@@ -5,6 +5,11 @@ def test_stream():
     master = CoBeMaster()
     master.start_test_stream()
 
+def collect_pngs():
+    """Collects pngs from all eyes"""
+    master = CoBeMaster()
+    master.collect_images_from_stream()
+
 def main():
     master = CoBeMaster()
     master.start()
