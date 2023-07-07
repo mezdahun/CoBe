@@ -28,6 +28,10 @@ from cobe.vision import web_vision
 def gstreamer_pipeline(
         capture_width=vision.capture_width,
         capture_height=vision.capture_height,
+        start_x=vision.start_x,
+        start_y=vision.start_y,
+        end_x=vision.end_x,
+        end_y=vision.end_y,
         display_width=vision.display_width,
         display_height=vision.display_height,
         framerate=vision.frame_rate,
@@ -35,18 +39,25 @@ def gstreamer_pipeline(
 ):
     """Returns a GStreamer pipeline string to start stream with the CSI camera
     on nVidia Jetson Nano"""
-    # "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
     framerate = 21
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
-            "width=3264, height=2464, "
-            "format=(string)NV12, framerate=(fraction)%d/1 ! "
-            "nvvidconv flip-method=%d left=140 right=1140 top=60 bottom=660 ! "
-            "video/x-raw, width=1000, height=600, format=(string)BGRx ! "
+            "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
+            "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
+            "nvvidconv flip-method=%d left=(int)%d right=(int)%d top=(int)%d bottom=(int)%d ! "  # flip and crop image
+            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "  # resize image
             "videoconvert ! "
             "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
             % (
+                capture_width,
+                capture_height,
+                start_x,
+                end_x,
+                start_y,
+                end_y,
+                display_width,
+                display_height,
                 framerate,
                 flip_method
             )
