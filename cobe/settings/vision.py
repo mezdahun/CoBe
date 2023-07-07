@@ -6,8 +6,8 @@ flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 3264)
 capture_height = os.getenv("CAPTURE_HEIGHT", 2464)
 
-display_width = os.getenv("DISPLAY_WIDTH", 320)  # fisheye calibration maps should be adjusted to this resolution
-display_height = os.getenv("DISPLAY_HEIGHT", 240)  # fisheye calibration maps should be adjusted to this resolution
+display_width = os.getenv("DISPLAY_WIDTH", 3000)  # fisheye calibration maps should be adjusted to this resolution
+display_height = os.getenv("DISPLAY_HEIGHT", 2000)  # fisheye calibration maps should be adjusted to this resolution
 start_x = os.getenv("START_X", 0)  # start cropping from this x coordinate for display_width length
 start_y = os.getenv("START_Y", 0)  # start cropping from this y coordinate for display_height length
 

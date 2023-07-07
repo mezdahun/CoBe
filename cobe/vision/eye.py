@@ -212,9 +212,9 @@ class CoBeEye(object):
         """Used for calibrating the camera with ARUCO codes by publishing a single high resolution image on the
         local network."""
         if width is None:
-            width = vision.capture_width
+            width = vision.display_width
         if height is None:
-            height = vision.capture_height
+            height = vision.display_height
         # taking single image with max possible resolution given the GStreamer pipeline
         img, t_cap = self.get_frame(img_width=width, img_height=height)
         # adding high resolution image to calibration frame to publish on local network
