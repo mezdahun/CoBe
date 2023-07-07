@@ -45,7 +45,7 @@ def gstreamer_pipeline(
             "video/x-raw(memory:NVMM), "
             "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
             "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
-            "nvvidconv flip-method=%d left=(int)%d right=(int)%d top=(int)%d bottom=(int)%d ! "  # flip and crop image
+            "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
             "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "  # resize image
             "videoconvert ! "
             "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
