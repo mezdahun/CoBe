@@ -52,14 +52,14 @@ def gstreamer_pipeline(
             % (
                 capture_width,
                 capture_height,
+                framerate,
+                flip_method,
                 start_x,
                 end_x,
                 start_y,
                 end_y,
                 display_width,
-                display_height,
-                framerate,
-                flip_method
+                display_height
             )
     )
 
