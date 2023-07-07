@@ -40,6 +40,17 @@ def gstreamer_pipeline(
     """Returns a GStreamer pipeline string to start stream with the CSI camera
     on nVidia Jetson Nano"""
     framerate = 21
+    print(      capture_width,
+                capture_height,
+                framerate,
+                flip_method,
+                start_x,
+                end_x,
+                start_y,
+                end_y,
+                display_width,
+                display_height
+            )
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
