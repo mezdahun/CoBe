@@ -253,6 +253,12 @@ class CoBeMaster(object):
 
                     plt.pause(0.001)
 
+    def calibrate(self, with_visualization=True, interactive=True, detach=True):
+        """Calibrating eyes using the projection stack"""
+        self.project_calibration_image()
+        self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach)
+        self.remove_calibration_image()
+
     def start_test_stream(self, t=300):
         """Starting a test stream on all eyes for t iterations"""
         for it in range(t):
@@ -309,11 +315,15 @@ class CoBeMaster(object):
 
     def start(self, show_simulation_space=True):
         """Starts the main action loop of the CoBe project"""
+        print("Starting rendering stack")
+        self.startup_rendering_stack()
+        print("Starting OD detection on eyes")
         self.initialize_object_detectors()
         # at this point eyes are ready for traffic
         # calibrating eyes before starting
-        self.calibrator.generate_calibration_image(detach=True)
-        self.calculate_calibration_maps(with_visualization=True, interactive=True, detach=True)
+        print("Calibrating eyes")
+        self.calibrate(with_visualization=True, interactive=True, detach=True)
+
         if show_simulation_space:
             chosen_eye = "eye_0"
             plt.ion()
