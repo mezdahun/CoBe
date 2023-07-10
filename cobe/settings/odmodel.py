@@ -9,7 +9,7 @@ api_key = "gX0Zo9eq9sRf7wfJNDMH"
 # version = "2"
 
 # model name
-model_name = "yolo-v8-yfx6m"  # "face-detection-mik1i"
+model_name = "fisheye-overhead"  # "face-detection-mik1i"
 # url of the background roboflow inference server container (with ending /)
 inf_server_url = "http://localhost:9001/"
 model_id = "/" + model_name
