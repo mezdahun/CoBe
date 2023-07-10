@@ -11,7 +11,7 @@ flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 3264)
 capture_height = os.getenv("CAPTURE_HEIGHT", 2464)
 start_x = os.getenv("START_X", 1150)  # start cropping from this x coordinate for display_width length
-start_y = os.getenv("START_Y", 950)  # start cropping from this y coordinate for display_height length
+start_y = os.getenv("START_Y", 850)  # start cropping from this y coordinate for display_height length
 crop_width = os.getenv("CROP_WIDTH", 1000)  # crop the image to this width
 crop_height = os.getenv("CROP_HEIGHT", 1000)  # crop the image to this height
 
