@@ -10,8 +10,8 @@ import os
 flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 3264)
 capture_height = os.getenv("CAPTURE_HEIGHT", 2464)
-start_x = os.getenv("START_X", 1300)  # start cropping from this x coordinate for display_width length
-start_y = os.getenv("START_Y", 1000)  # start cropping from this y coordinate for display_height length
+start_x = os.getenv("START_X", 1100)  # start cropping from this x coordinate for display_width length
+start_y = os.getenv("START_Y", 900)  # start cropping from this y coordinate for display_height length
 crop_width = os.getenv("CROP_WIDTH", 600)  # crop the image to this width
 crop_height = os.getenv("CROP_HEIGHT", 600)  # crop the image to this height
 
