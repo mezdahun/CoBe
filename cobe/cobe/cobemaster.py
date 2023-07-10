@@ -12,6 +12,7 @@ They
 
 """
 import os
+import time
 import timeit
 import cv2
 import json
@@ -21,6 +22,7 @@ import matplotlib.tri as tri
 
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel, aruco, vision
+from cobe.rendering.renderingstack import RenderingStack
 from time import sleep
 from getpass import getpass
 from scipy.interpolate import Rbf
@@ -35,6 +37,8 @@ class CoBeMaster(object):
         self.eyes = self.create_eye_objects()
         # create calibration object for the run
         self.calibrator = CoBeCalib()
+        # create rendering stack
+        self.rendering_stack = RenderingStack()
         # path of current files directory's parent directory
         self.file_dir_path = os.path.dirname(os.path.abspath(__file__))
         # parent directory
@@ -334,6 +338,30 @@ class CoBeMaster(object):
         # todo: decide on cleaning up inference servers here or in the cleanup function
 
         # todo: include remapping
+
+    def project_calibration_image(self, on_master_visualization=False):
+        """Projects the calibration image onto the arena surface"""
+        # generate calibration image
+        projection_image = self.calibrator.generate_calibration_image(return_image=True)
+
+        # transform image to bytearray
+        byte_image = cv2.imencode('.jpg', projection_image)[1].tobytes()
+
+        # Showing the image if requested
+        if on_master_visualization:
+            import matplotlib.pyplot as plt
+            plt.imshow(projection_image)
+            plt.show()
+
+        print("Removing overlay image if any")
+        self.rendering_stack.remove_image()
+        time.sleep(3)
+        print("Displaying overlay image")
+        self.rendering_stack.display_image(byte_image)
+
+    def remove_calibration_image(self):
+        """Removes the calibration image from the arena surface"""
+        self.rendering_stack.remove_image()
 
 
 class CoBeCalib(object):
