@@ -352,8 +352,20 @@ class CoBeMaster(object):
 
         # todo: include remapping
 
+    def startup_rendering_stack(self):
+        """Starts all apps of the rendering stack"""
+        self.rendering_stack.open_apps()
+
+    def shutdown_rendering_stack(self):
+        """Starts all apps of the rendering stack"""
+        self.rendering_stack.close_apps()
+
     def project_calibration_image(self, on_master_visualization=False):
         """Projects the calibration image onto the arena surface"""
+        # Start rendering stack
+        print("Starting rendering stack")
+        self.startup_rendering_stack()
+
         # generate calibration image
         projection_image = self.calibrator.generate_calibration_image(return_image=True)
 
