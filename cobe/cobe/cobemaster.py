@@ -111,6 +111,9 @@ class CoBeMaster(object):
                         retry[eye_i] = False
 
         self.save_calibration_maps()
+        if with_visualization:
+            # closing all maptlotlib windows after calibration
+            plt.close("all")
 
     def save_calibration_maps(self):
         """Saves the calibration maps and eye settings for each eye json file"""
