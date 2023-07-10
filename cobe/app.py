@@ -14,6 +14,11 @@ def shutdown_eyes():
     master = CoBeMaster()
     master.shutdown_eyes()
 
+def shutdown_rendering():
+    """Shuts down all rendering"""
+    master = CoBeMaster()
+    master.shutdown_rendering_stack()
+
 def calibrate():
     """Test Calibration of all eyes interactively"""
     master = CoBeMaster()
