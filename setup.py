@@ -40,6 +40,7 @@ setup(
                             "cobe-master-calibrate=cobe.app:calibrate",
                             "cobe-master-test-stream=cobe.app:test_stream",
                             "cobe-master-collect-pngs=cobe.app:collect_pngs",
+                            "cobe-master-shutdown-rendering=cobe.app:shutdown_rendering",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
