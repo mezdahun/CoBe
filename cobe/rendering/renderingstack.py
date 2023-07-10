@@ -93,8 +93,13 @@ class RenderingStack(object):
         Returns:
             bool: Whether the message was successfully communicated or not
         """
+        print(self.sender)
         if not self.sender:
+            print("Sender does not exist, creating sender")
             self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
+            # import time
+            # time.sleep(3)
+            print("sender created: ", self.sender)
 
         try:
             if self.sender.sendall(byte_object) is None:
@@ -102,10 +107,12 @@ class RenderingStack(object):
             else:
                 return False
         except:
+            print("Error during sending message to sender")
             return False
 
     def close_sender(self):
         self.sender.close()
+        self.sender = None
 
     def display_image(self, byte_array: bytearray):
         """Displays the passed image atop the Unity rendering stack
@@ -115,7 +122,11 @@ class RenderingStack(object):
         converted_string = base64.b64encode(byte_array)
         self.send_message(converted_string)
         print("Sent TCP command to display image")
+        self.close_sender()
+        print("Sender closed after message")
 
     def remove_image(self):
         self.send_message("0".encode())
         print("Sent TCP command to remove image")
+        self.close_sender()
+        print("Sender closed after message")

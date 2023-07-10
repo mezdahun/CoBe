@@ -25,6 +25,12 @@ class SampleRun():
 
 sample = SampleRun() # Initialize an instance
 # sample.start_everything() # starts everything
-# sample.project_image() # projects image at filepath in rendersettings.py, expects 4k. Subsequent calls replace the existing image
+print("bfore projection")
+sample.project_image() # projects image at filepath in rendersettings.py, expects 4k. Subsequent calls replace the existing image
+print("going to sleep")
+# import time
+# time.sleep(5)
+# print("removing image")
 # sample.remove_image() # removes any image that is currently displayed, if any
+# print("image removed")
 # sample.stop_everything() # stops everything
