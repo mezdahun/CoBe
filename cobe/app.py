@@ -27,5 +27,7 @@ def shutdown_eyes():
 def calibrate():
     """Test Calibration of all eyes interactively"""
     master = CoBeMaster()
-    master.calibrator.generate_calibration_image(detach=True)
+    # master.calibrator.generate_calibration_image(detach=True)
+    master.project_calibration_image()
     master.calculate_calibration_maps(with_visualization=True, interactive=True, detach=True)
+    master.remove_calibration_image()
