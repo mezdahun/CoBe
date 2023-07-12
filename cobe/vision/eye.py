@@ -254,11 +254,11 @@ class CoBeEye(object):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
-        # try:
-        detections = self.detector_model.predict(img, confidence=confidence)
-        # except KeyError:
-        #     print("KeyError in roboflow inference code, can mean that your authentication"
-        #           "is invalid to the inference server.")
+        try:
+            detections = self.detector_model.predict(img, confidence=confidence)
+        except KeyError:
+            print("KeyError in roboflow inference code, can mean that your authentication"
+                  "is invalid to the inference server.")
 
         preds = detections.json().get("predictions")
 
@@ -266,11 +266,13 @@ class CoBeEye(object):
         for pred in preds:
             del pred["image_path"]
 
+        print(preds)
+
         # # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
-        if self.publish_mjpeg_stream:
-            if self.streaming_server is None:
-                self.setup_streaming_server()
-            self.streaming_server.frame = annotate_detections(img, preds)
+        # if self.publish_mjpeg_stream:
+        #     if self.streaming_server is None:
+        #         self.setup_streaming_server()
+        #     self.streaming_server.frame = annotate_detections(img, preds)
 
         return preds
 
