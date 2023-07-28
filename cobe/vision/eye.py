@@ -260,20 +260,20 @@ class CoBeEye(object):
         #     print("KeyError in roboflow inference code, can mean that your authentication"
         #           "is invalid to the inference server.")
 
-        print(detections.json())
+        # print(detections.json())
         preds = detections.json().get("predictions")
 
         # removing image path from predictions
         for pred in preds:
             del pred["image_path"]
 
-        print(preds)
+        print(f"Number of predictions: {len(preds)}")
 
-        # # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
-        # if self.publish_mjpeg_stream:
-        #     if self.streaming_server is None:
-        #         self.setup_streaming_server()
-        #     self.streaming_server.frame = annotate_detections(img, preds)
+        # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
+        if self.publish_mjpeg_stream:
+            if self.streaming_server is None:
+                self.setup_streaming_server()
+            self.streaming_server.frame = annotate_detections(img, preds)
 
         return preds
 
