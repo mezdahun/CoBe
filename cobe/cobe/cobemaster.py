@@ -25,6 +25,7 @@ import matplotlib.tri as tri
 from Pyro5.api import Proxy
 from cobe.settings import network, odmodel, aruco, vision
 from cobe.rendering.renderingstack import RenderingStack
+from cobe.pmodule.pmodule import generate_pred_json
 from time import sleep
 from getpass import getpass
 from scipy.interpolate import Rbf
@@ -386,6 +387,10 @@ class CoBeMaster(object):
                                     xreal, yreal = xreal * (inf_img_width / vision.capture_width), yreal * (
                                                             inf_img_height / vision.capture_height)
                                     print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
+
+                                # generating predator position
+                                # todo: merge all detection positions into a single position list and pass to json generator
+                                generate_pred_json([xreal, yreal])
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 print("Connection error: Inference server is probably not yet started properly. "
