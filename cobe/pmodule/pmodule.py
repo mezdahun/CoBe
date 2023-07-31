@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from time import sleep
 from cobe.tools.filetools import is_process_running, clear_directory
 import subprocess
@@ -25,12 +26,15 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
 
     # Check if any containers are actively using an image by the name of our target image
     # https://stackoverflow.com/questions/31288830/find-the-docker-containers-using-an-image
-    containers_using_image = (subprocess.check_output(f'cmd /c \"docker container ls --all --filter=ancestor={ps.docker_image_name} --format \"{{{{.ID}}}}\"\"', shell=True)).splitlines()
+    containers_using_image = (subprocess.check_output(
+        f'cmd /c \"docker container ls --all --filter=ancestor={ps.docker_image_name} --format \"{{{{.ID}}}}\"\"',
+        shell=True)).splitlines()
     for container in containers_using_image:
         decoded_id = container.decode()
         if decoded_id:
             # If there are any, are those containers running?
-            running_container_using_image = subprocess.check_output(f'cmd /c \"docker container inspect -f \'{{{{.State.Running}}}}\' {decoded_id}\"', shell=True)
+            running_container_using_image = subprocess.check_output(
+                f'cmd /c \"docker container inspect -f \'{{{{.State.Running}}}}\' {decoded_id}\"', shell=True)
             if running_container_using_image.decode().find('true'):
                 # If so, then the PModule is already running, or a version of it is at least.
                 print("It looks like the PModule is already running. Skipping the rest of the initialization")
@@ -70,3 +74,36 @@ def entry_cleanup_docker_container():
 
     print("Removing P-module container...")
     os.system('cmd /c "docker rm cont"')
+
+
+def generate_pred_json(position_list):
+    """Generates a .json file containing the predator positions
+    to be consumed by the Pmodule
+    :param position_list: list of predator positions, e.g. [[x0, y0], [x1, y1], ...]
+    Example:
+    [
+        {
+            "ID": 0,
+            "v0": -1.7511167168093489,
+            "v1": -0.96622473789012819,
+            "x0": 3000.305906020326201,
+            "x1": -1000.859415112616865
+        }
+    ]
+    """
+    # generating filename with timestamp
+    filename = f"predators_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+
+    # generating list of predator dictionaries
+    output_list = []
+    for id, position in enumerate(position_list):
+        output_list.append({
+            "ID": id,
+            "v0": 0,
+            "v1": 0,
+            "x0": position[0],
+            "x1": position[1]
+        })
+
+    with open(os.path.join(ps.root_folder, filename), 'w') as f:
+        f.write(output_list.__str__())
