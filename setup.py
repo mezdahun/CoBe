@@ -29,7 +29,8 @@ setup(
             'opencv-python==4.7.0.72',
             'matplotlib',
             'scipy',
-            'pynput'
+            'pynput',
+            'psutil'
         ]
     },
     entry_points={
