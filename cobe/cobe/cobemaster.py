@@ -30,6 +30,32 @@ from time import sleep
 from getpass import getpass
 from scipy.interpolate import Rbf
 
+from cobe.settings.pmodulesettings import max_abs_coord
+
+
+def filter_detections(detections):
+    """Choosing correct detectionposition according to body parts"""
+    # deciding which bunding box to use
+    feet_dets = [det for det in detections if det["class"] == "feet"]
+    trunk_dets = [det for det in detections if det["class"] == "trunk"]
+    head_dets = [det for det in detections if det["class"] == "head"]
+    if len(feet_dets) > 0:
+        print("using feet detection")
+        detections = feet_dets
+    elif len(trunk_dets) > 0:
+        print("using trunk detection")
+        detections = trunk_dets
+    elif len(head_dets) > 0:
+        print("using head detection")
+        detections = head_dets
+
+    if len(detections) > 1:
+        print(f"More than 1 detection. Detections before sorting: {detections}")
+        detections = sorted(detections, key=lambda x: x["confidence"], reverse=True)
+        detections = [detections[0]]
+        print(f"chosen detection after sorting: {detections}")
+    return detections
+
 
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
@@ -194,19 +220,26 @@ class CoBeMaster(object):
         # First trying to get a more accurate interpolated value from the calibration map
         # find index of closest x value in eyes calibration map to provided xcam
         x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # print(np.nanmin(eye_dict["cmap_xmap_interp"]), np.nanmax(eye_dict["cmap_xmap_interp"]))
+        print(f"xcam: {xcam}, x_index: {x_index}")
         # find index of closest y value in eyes calibration map to provided ycam
         y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # print(np.nanmin(eye_dict["cmap_ymap_interp"]), np.nanmax(eye_dict["cmap_ymap_interp"]))
+        print(f"ycam: {ycam}, y_index: {y_index}")
         # return the real space coordinates for the provided camera space coordinates
         xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
+        print(eye_dict["cmap_xmap_interp"].shape, eye_dict["cmap_ymap_interp"].shape)
         # todo: implement remapping with extrapolated values if interpolated values are not valid
         # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
-        # if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
-        #     x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
-        #     # find index of closest y value in eyes calibration map to provided ycam
-        #     y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
-        #     # return the real space coordinates for the provided camera space coordinates
-        #     xreal, yreal = eye_dict["cmap_xmap_extrap"][y_index, x_index], eye_dict["cmap_ymap_extrap"][
-        #         y_index, x_index]
+        if xreal is None:
+            x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
+            # find index of closest y value in eyes calibration map to provided ycam
+            xreal = 0  #eye_dict["cmap_xmap_extrap"][y_index, x_index]
+        if yreal is None:
+            y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
+            # find index of closest y value in eyes calibration map to provided ycam
+            yreal = 0  #eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        xreal, yreal = yreal, xreal
         return xreal, yreal
 
     def demo_remapping(self, eye_name="eye_0"):
@@ -227,8 +260,8 @@ class CoBeMaster(object):
         plt.imshow(aruco_image, cmap='gray')
         plt.title("Original calibration image on simulation space")
 
-        xs = np.arange(0, vision.capture_width, 50)
-        ys = np.arange(0, vision.capture_height, 50)
+        xs = np.arange(0, vision.display_width, 50)
+        ys = np.arange(0, vision.display_height, 50)
 
         for xcam in xs:
             for ycam in ys:
@@ -243,8 +276,8 @@ class CoBeMaster(object):
                     plt.axes(axcam)
                     plt.scatter(xcam, ycam, c='r', marker='o')
                     plt.title("Camera space")
-                    plt.xlim(0, vision.capture_width)
-                    plt.ylim(0, vision.capture_height)
+                    plt.xlim(0, vision.display_width)
+                    plt.ylim(0, vision.display_height)
 
                     plt.axes(axreal)
                     plt.scatter(xreal, yreal, c='r', marker='o', s=80)
@@ -343,54 +376,72 @@ class CoBeMaster(object):
             plt.imshow(aruco_image, cmap='gray', origin='upper')
             plt.title("Original calibration image on simulation space")
 
-            xs = np.arange(0, vision.capture_width, 50)
-            ys = np.arange(0, vision.capture_height, 50)
+            xs = np.arange(0, vision.display_width, 50)
+            ys = np.arange(0, vision.display_height, 50)
 
         # todo save and load calibration maps by default
-        inf_img_width, inf_img_height = 320, 200
+        inf_img_width, inf_img_height = 416, 416
         try:
             try:
-                num_iterations = 300
+                num_iterations = 350
                 for frid in range(num_iterations):
                     for eye_name, eye_dict in self.eyes.items():
                         try:
-                            detections = eye_dict["pyro_proxy"].inference(confidence=20, img_width=320, img_height=200)
+                            detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
                             if eye_dict.get("cmap_xmap_interp") is not None:
+                                # choosing which detections to use and what does that mean
+                                detections = filter_detections(detections)
+
+                                predator_positions = []
                                 for detection in detections:
                                     xcam, ycam = detection["x"], detection["y"]
+
                                     # scaling up the coordinates to the original calibration image size
-                                    xcam, ycam = xcam * (vision.capture_width / inf_img_width), ycam * (
-                                                         vision.capture_height / inf_img_height)
+                                    xcam, ycam = xcam * (vision.display_width / inf_img_width), ycam * (
+                                                         vision.display_height / inf_img_height)
+
+                                    # remapping detection point to simulation space according to ARCO map
                                     xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
-                                    if show_simulation_space:
-                                        if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
-                                            xreal, yreal = 0, 0
-                                        if xreal != 0 and yreal != 0:
-                                            axcam.clear()
-                                            axreal.clear()
+                                    if xreal != 0 or yreal != 0:
+                                        print(f"Predator detected at {xreal}, {yreal}")
+                                        # if show_simulation_space:
+                                        #     if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                                        #         xreal, yreal = 0, 0
+                                        #     if xreal != 0 and yreal != 0:
+                                        #         axcam.clear()
+                                        #         axreal.clear()
+                                        #
+                                        #         plt.axes(axcam)
+                                        #         plt.scatter(xcam, ycam, c='r', marker='o')
+                                        #         plt.title("Camera space")
+                                        #         plt.xlim(0, vision.display_width)
+                                        #         plt.ylim(0, vision.display_height)
+                                        #
+                                        #         plt.axes(axreal)
+                                        #         plt.scatter(xreal, yreal, c='r', marker='o', s=80)
+                                        #         plt.title("Simulation space")
+                                        #         plt.xlim(0, aruco.proj_calib_image_width)
+                                        #         plt.ylim(0, aruco.proj_calib_image_width)
+                                        #
+                                        #         plt.pause(0.001)
 
-                                            plt.axes(axcam)
-                                            plt.scatter(xcam, ycam, c='r', marker='o')
-                                            plt.title("Camera space")
-                                            plt.xlim(0, vision.capture_width)
-                                            plt.ylim(0, vision.capture_height)
+                                        # scaling down the coordinates from the original calibration image size to the
+                                        # simulation space
+                                        xreal, yreal = xreal * ((2 * max_abs_coord) / aruco.proj_calib_image_width) - max_abs_coord, \
+                                                       yreal * ((2 * max_abs_coord) / aruco.proj_calib_image_height) - max_abs_coord
 
-                                            plt.axes(axreal)
-                                            plt.scatter(xreal, yreal, c='r', marker='o', s=80)
-                                            plt.title("Simulation space")
-                                            plt.xlim(0, aruco.proj_calib_image_width)
-                                            plt.ylim(0, aruco.proj_calib_image_width)
+                                        # matching directions in simulation space
+                                        xreal, yreal = yreal, -xreal
 
-                                            plt.pause(0.001)
+                                        # todo: simplify this by merging the 2 scaling commands
 
-                                    # scaling back down to the inference image size
-                                    xreal, yreal = xreal * (inf_img_width / vision.capture_width), yreal * (
-                                                            inf_img_height / vision.capture_height)
-                                    print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
+                                        predator_positions.append([xreal, yreal])
+                                        print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
 
                                 # generating predator position
-                                # todo: merge all detection positions into a single position list and pass to json generator
-                                generate_pred_json([xreal, yreal])
+                                if len(predator_positions) > 0:
+                                    generate_pred_json(predator_positions)
+
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 print("Connection error: Inference server is probably not yet started properly. "
