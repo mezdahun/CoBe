@@ -61,6 +61,8 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
             f'cmd /c "docker run --name cont '
             f'-v {ps.root_folder}:{ps.root_folder_on_container} '
             f'-t -d {ps.docker_image_name} sh run.sh -b {batch_size} -n {num_prey}"')
+        # todo: explicitly set the arena size in the container with pmodule settings and also add this when
+        #       rescaling for projection stack. Magic numbers should go!
 
 
 def entry_cleanup_docker_container():

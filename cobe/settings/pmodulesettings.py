@@ -18,3 +18,6 @@ docker_path = "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"
 
 # time to wait for docker to start up (s)
 docker_startup_timeout = 10
+
+# Inner coordinate system of the simulation
+max_abs_coord = 20
