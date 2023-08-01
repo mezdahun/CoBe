@@ -94,7 +94,7 @@ def generate_pred_json(position_list):
     ]
     """
     # generating filename with timestamp
-    filename = f"predators_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+    filename = f"out_pred.json"
 
     # generating list of predator dictionaries
     output_list = []
@@ -107,5 +107,6 @@ def generate_pred_json(position_list):
             "x1": position[1]
         })
 
+    # writing to file with json.dump
     with open(os.path.join(ps.root_folder, filename), 'w') as f:
-        f.write(output_list.__str__())
+        json.dump(output_list, f)
