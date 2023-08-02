@@ -186,6 +186,8 @@ class CoBeEye(object):
         logger.info("created command")
         response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
         logger.info("got response")
+        print(response)
+        print(len(response))
         if len(response) > 0:
             container_id = response[1].split()[0]
             logger.info("Found docker container with id %s" % container_id)
