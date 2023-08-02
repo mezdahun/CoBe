@@ -201,21 +201,21 @@ class CoBeEye(object):
         print("HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
         # # First searching for a previously created inference container.
         # # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
-        cid = self.search_for_docker_container()
-        print("HELLLLOOOOOOOO", cid)
-        # if self.inference_server_id is None:
-        #     command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
-        #     # calling command with os.system and saving the resulting  STD output in string variable
-        #     pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        #     logger.info("Inference server container created and started with pid ", pid)
-        #     self.inference_server_id = pid
-        # else:
-        #     command = "docker start %s" % self.inference_server_id
-        #     pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        #     logger.info("Inference server container was found and (re)started with pid ", pid)
-        #     logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
-        #                    "won't be found. For the first time you will need internet access to download the model.")
-        return cid
+        response = self.search_for_docker_container()
+        print("HELLLLOOOOOOOO", response)
+        if self.inference_server_id is None:
+            command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
+            # calling command with os.system and saving the resulting  STD output in string variable
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+            logger.info("Inference server container created and started with pid ", pid)
+            self.inference_server_id = pid
+        else:
+            command = "docker start %s" % self.inference_server_id
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+            logger.info("Inference server container was found and (re)started with pid ", pid)
+            logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
+                           "won't be found. For the first time you will need internet access to download the model.")
+        return response
 
     @expose
     def stop_inference_server(self):
