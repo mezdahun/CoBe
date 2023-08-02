@@ -180,26 +180,40 @@ class CoBeEye(object):
         logger.info("Object detection model initialized with parameters: %s, %s, %s, %s" % (
                     model_name, inf_server_url, model_id, version))
 
+    @expose
     def search_for_docker_container(self):
-        """Searches for a docker container with a given base image name"""
+        """Searches for a docker container with a given container name"""
         command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
-        response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        print("Inference server container status: ", response)
+        response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
+        if len(response) > 0:
+            container_id = response[1].split()[0]
+            logger.info("Found docker container with id %s" % container_id)
+        else:
+            container_id = None
+            logger.info("No docker container found with name %s" % odmodel.inf_server_cont_name)
+        self.inference_server_id = container_id
+        return container_id
 
 
     @oneway
     @expose
     def start_inference_server(self):
         """Starts the roboflow inference server via docker."""
+        # First searching for a previously created inference container.
+        # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
         self.search_for_docker_container()
         if self.inference_server_id is None:
             command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-            print("Inference server started with pid ", pid)
+            logger.info("Inference server container created and started with pid ", pid)
             self.inference_server_id = pid
         else:
-            print("Inference server already running with pid ", self.inference_server_id)
+            command = "docker start %s" % self.inference_server_id
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+            logger.info("Inference server container was found and (re)started with pid ", pid)
+            logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
+                           "won't be found. For the first time you will need internet access to download the model.")
         return pid
 
     @oneway
@@ -207,12 +221,12 @@ class CoBeEye(object):
     def stop_inference_server(self):
         """Stops the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not found. Nothing to stop!")
+            logger.warning("Inference server not found. Nothing to stop!")
             return None
 
         command = "docker stop " + str(self.inference_server_id)
         pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        print("Inference server stopped with pid ", pid)
+        logger.info("Inference server container was stopped with pid ", pid)
         return pid
 
     @oneway
@@ -220,19 +234,19 @@ class CoBeEye(object):
     def remove_inference_server(self):
         """Removes the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not found. Nothing to remove!")
+            logger.warning("Inference server not found. Nothing to remove!")
             return None
 
         command = "docker rm " + str(self.inference_server_id)
         pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        print("Inference server removed with pid ", pid)
+        logger.info("Inference server container was removed with pid ", pid)
         self.inference_server_id = None
         return pid
 
     @expose
     def return_id(self):
         """This is exposed on the network and can have a return value"""
-        print(f"ID requested and returned: {self.id}")
+        logger.debug(f"ID was requested and returned: {self.id}")
         return self.id
 
     def get_frame(self, img_width, img_height):
@@ -245,7 +259,7 @@ class CoBeEye(object):
         #     print("Fisheye map file loaded successfully")
 
         t_cap = datetime.datetime.now()
-        print("Taking single frame")
+        logger.debug("Taking single frame.")
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
 
@@ -275,40 +289,33 @@ class CoBeEye(object):
                 self.setup_streaming_server()
             self.streaming_server.calib_frame = img
         else:
-            print("MJPEG stream not enabled when eye was initialized. Cannot publish calibration frame."
-                  "Set vision.publish_mjpeg_stream to True and restart eye.")
-
-
-    @expose
-    def test_dict_return_latency(self):
-        """Testing return latency of dictionaries via Pyro5"""
-        test_dict = {"test": "test"}
-        return test_dict, datetime.datetime.now()
+            logger.error("MJPEG stream not enabled when eye was initialized. Cannot publish calibration frame."
+                         "Set vision.publish_mjpeg_stream to True and restart eye.")
 
     @expose
     def shutdown(self):
         """Shutting down the eye by setting the Daemon's loop condition to False"""
         self._is_running = False
+        logger.info("Eye shutdown initiated.")
 
     @expose
     def inference(self, confidence=40, img_width=416, img_height=416):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
-        # try:
-        detections = self.detector_model.predict(img, confidence=confidence)
-        # except KeyError:
-        #     print("KeyError in roboflow inference code, can mean that your authentication"
-        #           "is invalid to the inference server.")
+        try:
+            detections = self.detector_model.predict(img, confidence=confidence)
+        except KeyError:
+            logger.error("KeyError in roboflow inference code, can mean that your authentication"
+                         "is invalid to the inference server or you are over quota.")
 
-        # print(detections.json())
         preds = detections.json().get("predictions")
 
-        # removing image path from predictions
+        # removing image path from predictions as it will hold the whole array
         for pred in preds:
             del pred["image_path"]
 
-        print(f"Number of predictions: {len(preds)}")
+        logger.debug(f"Number of predictions: {len(preds)}")
 
         # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
         if self.publish_mjpeg_stream:
@@ -337,7 +344,7 @@ def main(host="localhost", port=9090):
     with Daemon(host, port) as daemon:
         eye_instance = CoBeEye()
         uri = daemon.register(eye_instance, objectId="cobe.eye")
-        print(uri)
+        logger.info(f"Pyro5 daemon started on {host}:{port} with URI {uri}")
         daemon.requestLoop(eye_instance.is_running)
 
 
