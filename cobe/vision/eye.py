@@ -184,7 +184,9 @@ class CoBeEye(object):
     def search_for_docker_container(self):
         """Searches for a docker container with a given container name"""
         command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
+        logger.info("created command")
         response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
+        logger.info("got response")
         if len(response) > 0:
             container_id = response[1].split()[0]
             logger.info("Found docker container with id %s" % container_id)
@@ -200,8 +202,8 @@ class CoBeEye(object):
         print("HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
         # # First searching for a previously created inference container.
         # # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
-        self.search_for_docker_container()
-        print("HELLLLOOOOOOOO", self.inference_server_id)
+        cid = self.search_for_docker_container()
+        print("HELLLLOOOOOOOO", cid)
         # if self.inference_server_id is None:
         #     command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
         #     # calling command with os.system and saving the resulting  STD output in string variable
