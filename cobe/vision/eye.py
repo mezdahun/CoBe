@@ -192,7 +192,7 @@ class CoBeEye(object):
         else:
             container_id = None
             logger.info("No docker container found with name %s" % odmodel.inf_server_cont_name)
-        return response
+        return container_id
 
     @expose
     def start_inference_server(self):
@@ -203,6 +203,8 @@ class CoBeEye(object):
         found_cid = self.search_for_docker_container()
         if found_cid is not None:
             self.inference_server_id = found_cid
+
+        print(found_cid, self.inference_server_id)
 
         if self.inference_server_id is None:
             command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
