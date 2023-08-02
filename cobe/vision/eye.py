@@ -297,6 +297,7 @@ class CoBeEye(object):
         """Shutting down the eye by setting the Daemon's loop condition to False"""
         self._is_running = False
         logger.info("Eye shutdown initiated.")
+        raise KeyboardInterrupt
 
     @expose
     def inference(self, confidence=40, img_width=416, img_height=416):
