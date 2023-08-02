@@ -1,10 +1,17 @@
 import json
 import os
-from datetime import datetime
+import subprocess
+import logging
+
+import cobe.settings.pmodulesettings as ps
+
 from time import sleep
 from cobe.tools.filetools import is_process_running, clear_directory
-import subprocess
-import cobe.settings.pmodulesettings as ps
+from cobe.settings import logs
+
+# Setting up file logger
+logging.basicConfig(level=logs.log_level, format=logs.log_format)
+logger = logs.setup_logger(__name__.split(".")[-1])
 
 
 def entry_start_docker_container(batch_size=4, num_prey=50):
