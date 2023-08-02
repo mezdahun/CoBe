@@ -201,7 +201,9 @@ class CoBeEye(object):
         # # First searching for a previously created inference container.
         # # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
         found_cid = self.search_for_docker_container()
-        print("HELLLLOOOOOOOO", found_cid)
+        if found_cid is not None:
+            self.inference_server_id = found_cid
+
         if self.inference_server_id is None:
             command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
