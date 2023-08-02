@@ -79,9 +79,22 @@ class CoBeMaster(object):
         self.cobe_root_dir = os.path.abspath(os.path.join(self.file_dir_path, os.pardir))
         # calib data dir
         self.calib_data_dir = os.path.join(self.cobe_root_dir, "settings", "calibration_data")
-        # requesting master password for nanos
-        # todo: first check if the nanos already have an eye and they have a pswd already
-        self.nano_password = getpass("To start inference server on Nano, please enter the admin password:")
+        # requesting master password for nanos if they are not set yet
+        self.check_pswds()
+
+    def check_pswds(self):
+        """Checking if the password is already set on the eyes and if not asking from user"""
+        ask_for_pswd = False
+        for eye_name, eye_dict in self.eyes.items():
+            if not eye_dict["pyro_proxy"].has_pswd():
+                logger.info(f"Eye {eye_name} does not have a password set.")
+                ask_for_pswd = True
+                break
+
+        if ask_for_pswd:
+            nano_password = getpass("Please enter password for nanos: ")
+            for eye_name, eye_dict in self.eyes.items():
+                eye_dict["pyro_proxy"].set_pswd(nano_password)
 
     def create_eye_objects(self):
         """Creates eye Pyro objects from the network settings"""
@@ -102,7 +115,7 @@ class CoBeMaster(object):
         logger.info("Initializing object detectors...")
         for eye_name, eye_dict in self.eyes.items():
             # start docker servers
-            eye_dict["pyro_proxy"].start_inference_server(self.nano_password)
+            eye_dict["pyro_proxy"].start_inference_server()
 
         logger.info("Waiting for inference servers to start...")
         sleep(5)
@@ -230,12 +243,12 @@ class CoBeMaster(object):
             # stop docker servers
             sleep(waitfor)
             logger.info(f"Stopping inference server on {eye_name}...")
-            eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+            eye_dict["pyro_proxy"].stop_inference_server()
 
             # waiting for docker to stop the container
             sleep(waitfor)
             logger.info(f"Removing inference server on {eye_name}...")
-            eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
+            eye_dict["pyro_proxy"].remove_inference_server()
 
     def shutdown_eyes(self, waitfor=5):
         """Shutting down all eye servers by raising KeyboardInterrupt on each eye"""

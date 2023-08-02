@@ -166,12 +166,12 @@ class CoBeEye(object):
 
     @oneway
     @expose
-    def start_inference_server(self, nano_password):
+    def start_inference_server(self):
         """Starts the roboflow inference server via docker."""
         if self.inference_server_id is None:
             command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
             # calling command with os.system and saving the resulting  STD output in string variable
-            pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
             print("Inference server started with pid ", pid)
             self.inference_server_id = pid
         else:
@@ -180,27 +180,27 @@ class CoBeEye(object):
 
     @oneway
     @expose
-    def stop_inference_server(self, nano_password):
+    def stop_inference_server(self):
         """Stops the roboflow inference server via docker."""
         if self.inference_server_id is None:
             print("Inference server not found. Nothing to stop!")
             return None
 
         command = "docker stop " + str(self.inference_server_id)
-        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
         print("Inference server stopped with pid ", pid)
         return pid
 
     @oneway
     @expose
-    def remove_inference_server(self, nano_password):
+    def remove_inference_server(self):
         """Removes the roboflow inference server via docker."""
         if self.inference_server_id is None:
             print("Inference server not found. Nothing to remove!")
             return None
 
         command = "docker rm " + str(self.inference_server_id)
-        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
         print("Inference server removed with pid ", pid)
         self.inference_server_id = None
         return pid
