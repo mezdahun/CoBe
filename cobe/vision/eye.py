@@ -180,7 +180,6 @@ class CoBeEye(object):
         logger.info("Object detection model initialized with parameters: %s, %s, %s, %s" % (
                     model_name, inf_server_url, model_id, version))
 
-    @expose
     def search_for_docker_container(self):
         """Searches for a docker container with a given container name"""
         command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
@@ -216,7 +215,7 @@ class CoBeEye(object):
         #     logger.info("Inference server container was found and (re)started with pid ", pid)
         #     logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
         #                    "won't be found. For the first time you will need internet access to download the model.")
-        # return pid
+        return cid
 
     @expose
     def stop_inference_server(self):
