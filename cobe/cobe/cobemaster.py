@@ -115,7 +115,9 @@ class CoBeMaster(object):
         logger.info("Initializing object detectors...")
         for eye_name, eye_dict in self.eyes.items():
             # start docker servers
+            logger.info(f"Starting inference server on {eye_name}.")
             eye_dict["pyro_proxy"].start_inference_server()
+            sleep(2)
 
         logger.info("Waiting for inference servers to start...")
         sleep(5)
@@ -252,8 +254,6 @@ class CoBeMaster(object):
 
     def shutdown_eyes(self, waitfor=5):
         """Shutting down all eye servers by raising KeyboardInterrupt on each eye"""
-        self.cleanup_inference_servers()
-        logger.info("Waiting for removal of inference servers...")
         sleep(waitfor)
         for eye_name, eye_dict in self.eyes.items():
             eye_dict["pyro_proxy"].shutdown()
