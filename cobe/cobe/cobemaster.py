@@ -13,9 +13,7 @@ They
 """
 import os
 import time
-import timeit
 from datetime import datetime
-
 import cv2
 import json
 import numpy as np
@@ -23,14 +21,20 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 from Pyro5.api import Proxy
-from cobe.settings import network, odmodel, aruco, vision
-from cobe.rendering.renderingstack import RenderingStack
-from cobe.pmodule.pmodule import generate_pred_json
 from time import sleep
 from getpass import getpass
 from scipy.interpolate import Rbf
+from pynput import keyboard
 
 from cobe.settings.pmodulesettings import max_abs_coord
+from cobe.settings import network, odmodel, aruco, vision, logs
+from cobe.rendering.renderingstack import RenderingStack
+from cobe.pmodule.pmodule import generate_pred_json
+
+# Setting up file logger
+import logging
+logging.basicConfig(level=logs.log_level, format=logs.log_format)
+logger = logs.setup_logger(__name__.split(".")[-1])
 
 
 def filter_detections(detections):
