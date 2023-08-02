@@ -13,6 +13,9 @@ root_folder_on_container = "//usr/src/myapp/batches"
 # pmodule docker image name
 docker_image_name = "predpreyoriginal:latest"
 
+# pmodule docker container name
+docker_container_name = "pmodule_container"
+
 # path of docker executable on windows
 docker_path = "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"
 
@@ -21,3 +24,6 @@ docker_startup_timeout = 10
 
 # Inner coordinate system of the simulation
 max_abs_coord = 20
+
+# Filename for predator json file
+predator_filename = "out_pred.json"
