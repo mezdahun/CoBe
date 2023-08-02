@@ -194,30 +194,28 @@ class CoBeEye(object):
         self.inference_server_id = container_id
         return container_id
 
-
-    @oneway
     @expose
     def start_inference_server(self):
         """Starts the roboflow inference server via docker."""
-        # First searching for a previously created inference container.
-        # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
-        self.search_for_docker_container()
-        print("HELLLLOOOOOOOO", self.inference_server_id)
-        if self.inference_server_id is None:
-            command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
-            # calling command with os.system and saving the resulting  STD output in string variable
-            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-            logger.info("Inference server container created and started with pid ", pid)
-            self.inference_server_id = pid
-        else:
-            command = "docker start %s" % self.inference_server_id
-            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-            logger.info("Inference server container was found and (re)started with pid ", pid)
-            logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
-                           "won't be found. For the first time you will need internet access to download the model.")
-        return pid
+        print("HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
+        # # First searching for a previously created inference container.
+        # # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
+        # self.search_for_docker_container()
+        # print("HELLLLOOOOOOOO", self.inference_server_id)
+        # if self.inference_server_id is None:
+        #     command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
+        #     # calling command with os.system and saving the resulting  STD output in string variable
+        #     pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+        #     logger.info("Inference server container created and started with pid ", pid)
+        #     self.inference_server_id = pid
+        # else:
+        #     command = "docker start %s" % self.inference_server_id
+        #     pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+        #     logger.info("Inference server container was found and (re)started with pid ", pid)
+        #     logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
+        #                    "won't be found. For the first time you will need internet access to download the model.")
+        # return pid
 
-    @oneway
     @expose
     def stop_inference_server(self):
         """Stops the roboflow inference server via docker."""
