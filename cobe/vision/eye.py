@@ -182,7 +182,7 @@ class CoBeEye(object):
 
     def search_for_docker_container(self):
         """Searches for a docker container with a given container name"""
-        command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
+        command = 'docker ps -a --filter=name=%s' % odmodel.inf_server_cont_name
         logger.info("created command")
         response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
         logger.info("got response")
