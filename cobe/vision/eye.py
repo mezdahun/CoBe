@@ -118,7 +118,11 @@ class CoBeEye(object):
     @expose
     def has_pswd(self):
         """Returns whether the eye has a password set"""
-        return self.pswd is not None
+        print("pswd status requested")
+        if self.pswd is None:
+            return False
+        else:
+            return True
 
     @expose
     def set_pswd(self, pswd):
