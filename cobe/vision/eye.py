@@ -188,7 +188,7 @@ class CoBeEye(object):
         logger.info("got response")
         print(response)
         print(len(response))
-        if len(response) > 0:
+        if len(response) > 1:
             container_id = response[1].split()[0]
             logger.info("Found docker container with id %s" % container_id)
         else:
