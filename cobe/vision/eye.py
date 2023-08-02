@@ -185,15 +185,15 @@ class CoBeEye(object):
         command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
         logger.info("created command")
         response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
-        logger.info("got response")
-        if len(response) > 0:
-            container_id = response[1].split()[0]
-            logger.info("Found docker container with id %s" % container_id)
-        else:
-            container_id = None
-            logger.info("No docker container found with name %s" % odmodel.inf_server_cont_name)
-        self.inference_server_id = container_id
-        return container_id
+        # logger.info("got response")
+        # if len(response) > 0:
+        #     container_id = response[1].split()[0]
+        #     logger.info("Found docker container with id %s" % container_id)
+        # else:
+        #     container_id = None
+        #     logger.info("No docker container found with name %s" % odmodel.inf_server_cont_name)
+        # self.inference_server_id = container_id
+        return response
 
     @expose
     def start_inference_server(self):
