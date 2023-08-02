@@ -15,13 +15,18 @@ import os
 import subprocess
 import threading
 
+import logging  # must be imported and set before pyro
+from cobe.settings import logs
+logging.basicConfig(level=logs.log_level, format=logs.log_format)
+logger = logs.setup_logger(__name__.split(".")[-1])
+
 import numpy as np
 from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
 from cobe.tools.detectiontools import annotate_detections
-from cobe.settings import vision
+from cobe.settings import vision, odmodel
 from cobe.vision import web_vision
 
 
@@ -39,18 +44,28 @@ def gstreamer_pipeline(
 ):
     """Returns a GStreamer pipeline string to start stream with the CSI camera
     on nVidia Jetson Nano"""
-    framerate = 21
-    print(      capture_width,
-                capture_height,
-                framerate,
-                flip_method,
-                start_x,
-                end_x,
-                start_y,
-                end_y,
-                display_width,
-                display_height
-            )
+    logger.info("Creating GStreamer pipeline string with the following parameters:"
+                "capture_width: %d, "
+                "capture_height: %d, "
+                "start_x: %d, "
+                "start_y: %d, "
+                "end_x: %d, "
+                "end_y: %d, "
+                "display_width: %d, "
+                "display_height: %d, "
+                "framerate: %d, "
+                "flip_method: %d" % (
+                    capture_width,
+                    capture_height,
+                    start_x,
+                    start_y,
+                    end_x,
+                    end_y,
+                    display_width,
+                    display_height,
+                    framerate,
+                    flip_method
+                ))
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
@@ -118,7 +133,7 @@ class CoBeEye(object):
     @expose
     def has_pswd(self):
         """Returns whether the eye has a password set"""
-        print("pswd status requested")
+        logger.debug("Password status requested.")
         if self.pswd is None:
             return False
         else:
@@ -128,11 +143,13 @@ class CoBeEye(object):
     def set_pswd(self, pswd):
         """Sets the password of the eye"""
         self.pswd = pswd
+        logger.info("Password set.")
 
     @expose
     def set_fisheye_calibration_map(self, calibration_map):
         """Sets the fisheye calibration map for the eye"""
         self.fisheye_calibration_map = calibration_map
+        logger.info("Fisheye calibration map set.")
 
     def is_running(self):
         """Returns the running status of the eye"""
@@ -146,30 +163,37 @@ class CoBeEye(object):
         self.streaming_server.eye_id = self.id
         self.streaming_thread = threading.Thread(target=self.streaming_server.serve_forever)
         self.streaming_thread.start()
+        logger.info("Streaming server started with address %s and port %d" % (self.local_ip, port))
 
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
-        print("Initializing object detection model")
         # Definign the object detection model instance
         self.detector_model = ObjectDetectionModel(api_key=api_key,
                                                    name=model_name,
                                                    id=model_id,
                                                    local=inf_server_url,
                                                    version=version)
-        print(model_name, inf_server_url, model_id, version)
         # Carry out a single prediction to initialize the model weights
         # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
-        print("Object detector initialized for eye ", self.id)
-        print(self.detector_model.api_url)
+        logger.info("Object detection model initialized with parameters: %s, %s, %s, %s" % (
+                    model_name, inf_server_url, model_id, version))
+
+    def search_for_docker_container(self):
+        """Searches for a docker container with a given base image name"""
+        command = 'docker ps --filter=name=%s' % odmodel.inf_server_cont_name
+        response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+        print("Inference server container status: ", response)
+
 
     @oneway
     @expose
     def start_inference_server(self):
         """Starts the roboflow inference server via docker."""
+        self.search_for_docker_container()
         if self.inference_server_id is None:
-            command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
+            command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
             print("Inference server started with pid ", pid)

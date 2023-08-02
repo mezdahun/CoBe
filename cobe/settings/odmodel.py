@@ -1,4 +1,7 @@
 """Settings of the object detection model trained on roboflow server"""
+# inference docker server name
+inf_server_cont_name = "roboflow_inference_container"
+
 # api_key to be able to download model from roboflow server
 api_key = "gX0Zo9eq9sRf7wfJNDMH"
 # # model name
