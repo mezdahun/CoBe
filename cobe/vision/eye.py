@@ -16,7 +16,7 @@ import subprocess
 import threading
 
 import numpy as np
-from Pyro5.api import expose, behavior, serve, oneway
+from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
@@ -111,6 +111,19 @@ class CoBeEye(object):
 
         # pyro5 daemon stopping flag
         self._is_running = True
+
+        # sudo pswd
+        self.pswd = None
+
+    @expose
+    def has_pswd(self):
+        """Returns whether the eye has a password set"""
+        return self.pswd is not None
+
+    @expose
+    def set_pswd(self, pswd):
+        """Sets the password of the eye"""
+        self.pswd = pswd
 
     @expose
     def set_fisheye_calibration_map(self, calibration_map):
