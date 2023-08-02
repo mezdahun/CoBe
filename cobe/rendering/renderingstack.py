@@ -12,7 +12,7 @@ from cobe.settings import logs
 # Setting up file logger
 import logging
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
-logger = logs.setup_logger(__name__.split(".")[-1])
+logger = logs.setup_logger("rendering")
 
 
 class RenderingStack(object):
