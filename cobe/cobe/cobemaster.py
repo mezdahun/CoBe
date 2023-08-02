@@ -40,24 +40,25 @@ logger = logs.setup_logger(__name__.split(".")[-1])
 def filter_detections(detections):
     """Choosing correct detectionposition according to body parts"""
     # deciding which bunding box to use
+    logger.debug("Filtering detections.")
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
     if len(feet_dets) > 0:
-        print("using feet detection")
+        logger.debug("Using feet detection.")
         detections = feet_dets
     elif len(trunk_dets) > 0:
-        print("using trunk detection")
+        logger.debug("Using trunk detection.")
         detections = trunk_dets
     elif len(head_dets) > 0:
-        print("using head detection")
+        logger.debug("Using head detection.")
         detections = head_dets
 
     if len(detections) > 1:
-        print(f"More than 1 detection. Detections before sorting: {detections}")
+        logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
         detections = sorted(detections, key=lambda x: x["confidence"], reverse=True)
         detections = [detections[0]]
-        print(f"chosen detection after sorting: {detections}")
+    logger.debug(f"Chosen detection after filtering: {detections}")
     return detections
 
 
@@ -65,7 +66,7 @@ class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
 
     def __init__(self):
-        """Constructor"""
+        """Constructor for CoBeMaster"""
         # eyes of the network
         self.eyes = self.create_eye_objects()
         # create calibration object for the run
@@ -79,6 +80,7 @@ class CoBeMaster(object):
         # calib data dir
         self.calib_data_dir = os.path.join(self.cobe_root_dir, "settings", "calibration_data")
         # requesting master password for nanos
+        # todo: first check if the nanos already have an eye and they have a pswd already
         self.nano_password = getpass("To start inference server on Nano, please enter the admin password:")
 
     def create_eye_objects(self):
@@ -97,17 +99,17 @@ class CoBeMaster(object):
     def initialize_object_detectors(self):
         """Starting the roboflow inference servers on all the eyes and carry out a single detection to initialize
         the model weights. This needs WWW access on the eyes as it downloads model weights from Roboflow"""
+        logger.info("Initializing object detectors...")
         for eye_name, eye_dict in self.eyes.items():
             # start docker servers
             eye_dict["pyro_proxy"].start_inference_server(self.nano_password)
-            # waiting for server to start
-            sleep(2)
 
-        print("Waiting for servers to start...")
-        sleep(4)
+        logger.info("Waiting for inference servers to start...")
+        sleep(5)
         for eye_name, eye_dict in self.eyes.items():
             # carry out a single detection to initialize the model weights
-            print(f"Initializing model on {eye_name}. Model parameters:")
+            logger.debug(f"Initializing model on {eye_name}. Model parameters: {odmodel.model_name}, "
+                         f"{odmodel.model_id}, {odmodel.inf_server_url}, {odmodel.version}")
             eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
                                                model_name=odmodel.model_name,
                                                model_id=odmodel.model_id,
@@ -115,76 +117,93 @@ class CoBeMaster(object):
                                                version=odmodel.version)
 
     def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True):
-        """Calculates the calibration maps for each eye and stores them in the eye dict"""
+        """Calculates the calibration maps for each eye and stores them in the eye dict
+        :param with_visualization: if True, the calibration maps are visualized
+        :param interactive: if True, the calibration maps are regenerated until the user agrees with quality
+        :param detach: if True, the calibration maps are calculated in a separate thread
+        :param with_save: if True, the calibration maps are saved to disk as json files"""
         retry = [True for i in range(len(self.eyes))]
         eye_i = 0
         for eye_name, eye_dict in self.eyes.items():
             is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
             if not is_map_loaded:
+                logger.info(f"Calculating calibration maps for {eye_name}.")
+
                 while retry[eye_i]:
                     # get a single calibration image from every eye object
-                    print("Fetching calibration images from eyes...")
+                    logger.debug("Fetching calibration images from eyes...")
                     self.calibrator.fetch_calibration_frames(self.eyes)
+
                     # detect the aruco marker mesh on the calibration images and save data in eye dicts
-                    print("Detecting ARUCO codes...")
+                    logger.debug("Detecting ARUCO codes...")
                     self.calibrator.detect_ARUCO_codes(self.eyes)
+
                     # calculate the calibration maps for each eye and store them in the eye dict
-                    print("Calculating calibration maps...")
+                    logger.debug("Calculating calibration maps...")
                     self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
+
                     if interactive:
-                        retry_input = input("press r to retry calibration, or enter to continue...")
+                        retry_input = input("Press r to retry calibration, or enter to continue...")
                         if retry_input == "r":
                             retry[eye_i] = True
                         else:
-                            print(f"Calibration results accepted by user for {eye_name}.")
+                            logger.info(f"Calibration results accepted by user for {eye_name}.")
                             retry[eye_i] = False
                     else:
                         retry[eye_i] = False
 
         self.save_calibration_maps()
         if with_visualization:
-            # closing all maptlotlib windows after calibration
+            # closing all matplotlib windows after calibration
             plt.close("all")
 
+        logger.info("Calibration maps calculated.")
+
     def save_calibration_maps(self):
-        """Saves the calibration maps and eye settings for each eye json file"""
+        """Saves the calibration maps and eye settings for each eye's predefined json file"""
+
         if not os.path.isdir(self.calib_data_dir):
+            logger.info(f"Creating calibration data directory at {self.calib_data_dir} as it does not exist.")
             os.makedirs(self.calib_data_dir, exist_ok=True)
 
         for eye_name, eye_dict in self.eyes.items():
+            # creating file path
             file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
-            print(f"Saving calibration map for {eye_name} to {file_path}")
             eye_dict_to_save = eye_dict.copy()
+
             # deleting pyro proxy and detected aruco code from dict as they are not serializable
             del eye_dict_to_save["pyro_proxy"]
             if eye_dict_to_save.get("detected_aruco"):
                 del eye_dict_to_save["detected_aruco"]
+
             # jsonifying dictionary
             for k, v in eye_dict_to_save.items():
-                print(k, v)
                 if isinstance(v, np.ndarray):
                     eye_dict_to_save[k] = v.tolist()
+
             # saving json file
             with open(file_path, "w") as f:
                 json.dump(eye_dict_to_save, f)
+            logger.info(f"Calibration map for {eye_name} saved to {file_path}.")
 
     def load_calibration_map(self, eye_name, eye_dict):
-        """Loads the calibration maps and eye settings for each eye json file"""
+        """Loads the calibration maps and eye settings for each eye from json files
+        :param eye_name: name of the eye
+        :param eye_dict: dictionary containing the eye data
+        :return: True if calibration map was loaded, False if not"""
+        # creating file path
         file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
         if os.path.isfile(file_path):
-            load_map_input = input(f"Calibration map for {eye_name} found in {file_path}. Do you want to load it? (Y/n)")
+            load_map_input = input(
+                f"Calibration map for {eye_name} found in {file_path}. Do you want to load it? (Y/n)")
             if load_map_input.lower() == "y":
-                print(f"Loading calibration map for {eye_name} from {file_path}")
+                logger.info(f"Loading calibration map for {eye_name} from {file_path}")
                 with open(file_path, "r") as f:
                     loaded_data = json.load(f)
                     # Loading eye settings from json file
                     eye_dict["eye_data"] = loaded_data["eye_data"]
                     # Loading calibration related data from json file
                     eye_dict["calibration_frame"] = np.array(loaded_data["calibration_frame"])
-                    # # detected aruco codes are not saved in json file, so we need to detect them again
-                    # self.calibrator.detect_ARUCO_codes(eye_dict)
-                    # if eye_dict["calibration_score"] != loaded_data["calibration_score"]:
-                    #     "Calibration score from json file does not match detected calibration score."
                     eye_dict["calibration_score"] = loaded_data["calibration_score"]
                     eye_dict["calibration_frame_annot"] = np.array(loaded_data["calibration_frame_annot"])
                     eye_dict["cmap_xmap_interp"] = np.array(loaded_data["cmap_xmap_interp"])
@@ -195,10 +214,14 @@ class CoBeMaster(object):
                     eye_dict["cmap_ymap_extrap"] = np.array(loaded_data["cmap_ymap_extrap"])
                     eye_dict["cmap_x_extrap"] = np.array(loaded_data["cmap_x_extrap"])
                     eye_dict["cmap_y_extrap"] = np.array(loaded_data["cmap_y_extrap"])
+                logger.info(f"Calibration map for {eye_name} loaded.")
                 return True
             else:
-                print(f"Calibration map for {eye_name} NOT loaded.")
+                logger.info(f"Calibration map for {eye_name} **NOT** loaded.")
                 return False
+        else:
+            # no calibration map found so a new map is necessary
+            return False
 
     def cleanup_inference_servers(self, waitfor=3):
         """Cleans up inference servers on all eyes.
@@ -206,44 +229,46 @@ class CoBeMaster(object):
         for eye_name, eye_dict in self.eyes.items():
             # stop docker servers
             sleep(waitfor)
+            logger.info(f"Stopping inference server on {eye_name}...")
             eye_dict["pyro_proxy"].stop_inference_server(self.nano_password)
+
             # waiting for docker to stop the container
             sleep(waitfor)
+            logger.info(f"Removing inference server on {eye_name}...")
             eye_dict["pyro_proxy"].remove_inference_server(self.nano_password)
 
-    def shutdown_eyes(self):
+    def shutdown_eyes(self, waitfor=5):
         """Shutting down all eye servers by raising KeyboardInterrupt on each eye"""
         self.cleanup_inference_servers()
-        print("Waiting for cleanup...")
-        sleep(5)
+        logger.info("Waiting for removal of inference servers...")
+        sleep(waitfor)
         for eye_name, eye_dict in self.eyes.items():
             eye_dict["pyro_proxy"].shutdown()
 
     def remap_detection_point(self, eye_dict, xcam, ycam):
-        """Remaps a detection point from camera space to real space according to the calibration maps"""
+        """Remaps a detection point from camera space to real space according to the calibration maps."""
         # First trying to get a more accurate interpolated value from the calibration map
         # find index of closest x value in eyes calibration map to provided xcam
         x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
-        # print(np.nanmin(eye_dict["cmap_xmap_interp"]), np.nanmax(eye_dict["cmap_xmap_interp"]))
-        print(f"xcam: {xcam}, x_index: {x_index}")
+        logger.debug(f"xcam: {xcam}, x_index: {x_index}")
         # find index of closest y value in eyes calibration map to provided ycam
         y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
-        # print(np.nanmin(eye_dict["cmap_ymap_interp"]), np.nanmax(eye_dict["cmap_ymap_interp"]))
-        print(f"ycam: {ycam}, y_index: {y_index}")
+        logger.debug(f"ycam: {ycam}, y_index: {y_index}")
         # return the real space coordinates for the provided camera space coordinates
         xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
-        print(eye_dict["cmap_xmap_interp"].shape, eye_dict["cmap_ymap_interp"].shape)
         # todo: implement remapping with extrapolated values if interpolated values are not valid
         # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
         if xreal is None:
             x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
             # find index of closest y value in eyes calibration map to provided ycam
-            xreal = 0  #eye_dict["cmap_xmap_extrap"][y_index, x_index]
+            xreal = 0  # eye_dict["cmap_xmap_extrap"][y_index, x_index]
         if yreal is None:
             y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
             # find index of closest y value in eyes calibration map to provided ycam
-            yreal = 0  #eye_dict["cmap_ymap_extrap"][y_index, x_index]
+            yreal = 0  # eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
+        logger.debug(f"xreal: {xreal}, yreal: {yreal}")
         return xreal, yreal
 
     def demo_remapping(self, eye_name="eye_0"):
@@ -273,9 +298,9 @@ class CoBeMaster(object):
                 if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
                     xreal, yreal = 0, 0
                 if xreal != 0 and yreal != 0:
-                    print("----")
-                    print(xcam, ycam)
-                    print(xreal, yreal)
+                    logger.info("----")
+                    logger.info(xcam, ycam)
+                    logger.info(xreal, yreal)
 
                     plt.axes(axcam)
                     plt.scatter(xcam, ycam, c='r', marker='o')
@@ -292,13 +317,21 @@ class CoBeMaster(object):
                     plt.pause(0.001)
 
     def calibrate(self, with_visualization=True, interactive=True, detach=True):
-        """Calibrating eyes using the projection stack"""
+        """Calibrating eyes using the projection stack
+        :param with_visualization: if True, the calibration process will be visualized
+        :param interactive: if True, the calibration process will be interactive and will be retried if quality is not
+                            sufficient
+        :param detach: if True, the calibration process will be detached from the main process"""
+        logger.debug("Sending calibration image to prjectors...")
         self.project_calibration_image()
+        logger.debug("Starting calibration...")
         self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach)
+        logger.debug("Removing calibration image from projectors...")
         self.remove_calibration_image()
+        sleep(2)
 
     def start_test_stream(self, t=300):
-        """Starting a test stream on all eyes for t iterations"""
+        """Starting a test stream on all eyes for t iterations without any inference to measure FPS/camera position."""
         for it in range(t):
             for eye_name, eye_dict in self.eyes.items():
                 # timing framerate of calibration frames
@@ -309,10 +342,13 @@ class CoBeMaster(object):
                 end_time = datetime.now()
                 delta_time = end_time - start_time
                 # print FPS with overwriting previous line
-                print(f"FPS~ on eye {eye_name}: ", int(1 / delta_time.total_seconds()))
+                logger.info(f"FPS~ on eye {eye_name}: ", int(1 / delta_time.total_seconds()))
 
     def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0"):
-        """Collecting and saving images from all eyes when s button is pressed. Quitting when q button is pressed."""
+        """Collecting and saving images from all eyes when s button is pressed.
+        Quitting when q button is pressed.
+        :param t_max: maximum number of iterations after which automatically quitting
+        :param target_eye_name: name of the eye for which images should be collected"""
         # path of current file
         file_path = os.path.dirname(os.path.realpath(__file__))
         # path of current directory
@@ -324,14 +360,12 @@ class CoBeMaster(object):
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
 
-        from pynput import keyboard
-
+        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, q to quit.")
         for it in range(t_max):
             for eye_name, eye_dict in self.eyes.items():
                 if eye_name == target_eye_name:
                     # check if s button is pressed
                     eye_dict["pyro_proxy"].get_calibration_frame()
-                    # The event listener will be running in this block
                     # The event listener will be running in this block
                     with keyboard.Events() as events:
                         # Block at most one second
@@ -339,31 +373,37 @@ class CoBeMaster(object):
                         if event is None:
                             pass
                         elif event.key == keyboard.Key.esc:
-                            print("Quitting")
+                            logger.info("Quitting")
                             return
                         elif event.key == keyboard.Key.space:
                             # saving frame as image
+                            # todo: cleanup the mjpeg server paths as global settings
                             cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
                             ret, frame = cap.read()
                             cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
-                            print(f"Saved image {eye_name}_{it}.png")
-        print("Finished collecting images")
+                            logger.info(f"Saved image {eye_name}_{it}.png")
+        logger.info("Finished collecting images. Bye Bye!")
 
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000):
+        """Starts the main action loop of the CoBe project
+        :param show_simulation_space: if True, the remapping to simulation space will be visualized as
+                                        matplotlib plot
+        :param target_eye_name: name of the eye for which remapping should be visualized (only if show_simulation_space
+                                is True)
+        :param t_max: maximum number of iterations after which automatically quitting, otherwise press q"""
 
-
-    def start(self, show_simulation_space=True):
-        """Starts the main action loop of the CoBe project"""
-        print("Starting rendering stack")
+        # Preparing eyes for running
+        logger.info("Starting rendering stack...")
         self.startup_rendering_stack()
-        print("Starting OD detection on eyes")
+        logger.info("Starting OD detection on eyes...")
         self.initialize_object_detectors()
-        # at this point eyes are ready for traffic
-        # calibrating eyes before starting
-        print("Calibrating eyes")
+        logger.info("Calibrating eyes...")
         self.calibrate(with_visualization=True, interactive=True, detach=True)
 
+        # setting up visualization if requested
         if show_simulation_space:
-            chosen_eye = "eye_0"
+            chosen_eye = target_eye_name
+            # setting up matplotlib canvas (slow)
             plt.ion()
             fig, (axcam, axreal) = plt.subplots(ncols=2)
             fig.canvas.draw()
@@ -383,56 +423,59 @@ class CoBeMaster(object):
             xs = np.arange(0, vision.display_width, 50)
             ys = np.arange(0, vision.display_height, 50)
 
-        # todo save and load calibration maps by default
-        inf_img_width, inf_img_height = 416, 416
         try:
             try:
-                num_iterations = 350
-                for frid in range(num_iterations):
+                for frid in range(t_max):
+                    logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
                         try:
                             detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
+
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
                                 detections = filter_detections(detections)
 
+                                # generating predator positions to be sent to the simulation
                                 predator_positions = []
                                 for detection in detections:
                                     xcam, ycam = detection["x"], detection["y"]
 
                                     # scaling up the coordinates to the original calibration image size
-                                    xcam, ycam = xcam * (vision.display_width / inf_img_width), ycam * (
-                                                         vision.display_height / inf_img_height)
+                                    xcam, ycam = xcam * (vision.display_width / vision.display_width), ycam * (
+                                            vision.display_height / vision.display_height)
 
                                     # remapping detection point to simulation space according to ARCO map
                                     xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
+
                                     if xreal != 0 or yreal != 0:
-                                        print(f"Predator detected at {xreal}, {yreal}")
-                                        # if show_simulation_space:
-                                        #     if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
-                                        #         xreal, yreal = 0, 0
-                                        #     if xreal != 0 and yreal != 0:
-                                        #         axcam.clear()
-                                        #         axreal.clear()
-                                        #
-                                        #         plt.axes(axcam)
-                                        #         plt.scatter(xcam, ycam, c='r', marker='o')
-                                        #         plt.title("Camera space")
-                                        #         plt.xlim(0, vision.display_width)
-                                        #         plt.ylim(0, vision.display_height)
-                                        #
-                                        #         plt.axes(axreal)
-                                        #         plt.scatter(xreal, yreal, c='r', marker='o', s=80)
-                                        #         plt.title("Simulation space")
-                                        #         plt.xlim(0, aruco.proj_calib_image_width)
-                                        #         plt.ylim(0, aruco.proj_calib_image_width)
-                                        #
-                                        #         plt.pause(0.001)
+                                        # showing predator coordinates if requested
+                                        if show_simulation_space:
+                                            if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                                                xreal, yreal = 0, 0
+
+                                            axcam.clear()
+                                            axreal.clear()
+
+                                            plt.axes(axcam)
+                                            plt.scatter(xcam, ycam, c='r', marker='o')
+                                            plt.title("Camera space")
+                                            plt.xlim(0, vision.display_width)
+                                            plt.ylim(0, vision.display_height)
+
+                                            plt.axes(axreal)
+                                            plt.scatter(xreal, yreal, c='r', marker='o', s=80)
+                                            plt.title("Simulation space")
+                                            plt.xlim(0, aruco.proj_calib_image_width)
+                                            plt.ylim(0, aruco.proj_calib_image_width)
+
+                                            plt.pause(0.001)
 
                                         # scaling down the coordinates from the original calibration image size to the
                                         # simulation space
-                                        xreal, yreal = xreal * ((2 * max_abs_coord) / aruco.proj_calib_image_width) - max_abs_coord, \
-                                                       yreal * ((2 * max_abs_coord) / aruco.proj_calib_image_height) - max_abs_coord
+                                        xreal, yreal = xreal * (
+                                                (2 * max_abs_coord) / aruco.proj_calib_image_width) - max_abs_coord, \
+                                                       yreal * (
+                                                (2 * max_abs_coord) / aruco.proj_calib_image_height) - max_abs_coord
 
                                         # matching directions in simulation space
                                         xreal, yreal = yreal, -xreal
@@ -440,46 +483,49 @@ class CoBeMaster(object):
                                         # todo: simplify this by merging the 2 scaling commands
 
                                         predator_positions.append([xreal, yreal])
-                                        print(f"(xcam, ycam) = ({xcam}, {ycam}) -> (xreal, yreal) = ({xreal}, {yreal})")
+                                        logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
+                                    else:
+                                        logger.info(f"No predator detected on eye {eye_name}")
 
                                 # generating predator position
                                 if len(predator_positions) > 0:
                                     generate_pred_json(predator_positions)
+                            else:
+                                raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
-                                print("Connection error: Inference server is probably not yet started properly. "
-                                      "retrying in 3"
-                                      "seconds.")
+                                logger.warning(
+                                    "Connection error: Inference server is probably not yet started properly. "
+                                    "retrying in 3"
+                                    "seconds.")
                                 sleep(3)
                             else:
-                                print(e)
-                                print("Cleaning up inference servers after crash...")
+                                logger.error(e)
                                 break
 
             except Exception as e:
-                print(e)
-                print("Cleaning up inference servers after crash...")
+                logger.error(e)
 
         except KeyboardInterrupt:
-            print("Cleaning up inference servers...")
+            logger.error("Interrupt requested by user. Exiting... (For normal business use 'q' to quit!)")
 
         # todo: decide on cleaning up inference servers here or in the cleanup function
 
-        # todo: include remapping
-
     def startup_rendering_stack(self):
         """Starts all apps of the rendering stack"""
+        logger.debug("Starting rendering stack...")
         self.rendering_stack.open_apps()
 
     def shutdown_rendering_stack(self):
         """Starts all apps of the rendering stack"""
+        logger.debug("Shutting down rendering stack...")
         self.rendering_stack.close_apps()
 
     def project_calibration_image(self, on_master_visualization=False):
         """Projects the calibration image onto the arena surface"""
         # Start rendering stack
-        print("Starting rendering stack")
+        logger.info("Starting rendering stack")
         self.startup_rendering_stack()
 
         # generate calibration image
@@ -490,18 +536,18 @@ class CoBeMaster(object):
 
         # Showing the image if requested
         if on_master_visualization:
-            import matplotlib.pyplot as plt
             plt.imshow(projection_image)
             plt.show()
 
-        print("Removing overlay image if any")
+        logger.debug("Removing overlay image if any.")
         self.rendering_stack.remove_image()
         time.sleep(3)
-        print("Displaying overlay image")
+        logger.debug("Displaying overlay image.")
         self.rendering_stack.display_image(byte_image)
 
     def remove_calibration_image(self):
         """Removes the calibration image from the arena surface"""
+        logger.debug("Removing calibration image")
         self.rendering_stack.remove_image()
 
 
@@ -516,18 +562,24 @@ class CoBeCalib(object):
         """Fetches calibration frames from all eyes"""
         # Generate and publish calibration frames for all eyes
         for eye_name, eye_dict in eyes.items():
+            logger.info(f"Fetching calibration frame from eye {eye_name}")
             eye_dict["pyro_proxy"].get_calibration_frame()
 
         # Downloading calibration frames from all eyes
         for eye_name, eye_dict in eyes.items():
-            print(eye_dict)
+            logger.debug(eye_dict)
             cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
             ret, frame = cap.read()
             eye_dict["calibration_frame"] = frame
             cap.release()
 
+        logger.info("Calibration frames fetched.")
+
     def detect_ARUCO_codes(self, eyes, with_visualization=False):
-        """Detects ARUCO codes according to cobe.settings.aruco in fetched calibration images"""
+        """Detects ARUCO codes according to cobe.settings.aruco in fetched calibration images
+        and stores the results in the eyes dictionary
+        :param eyes: dictionary of eyes
+        :param with_visualization: if True, the ARUCO codes are visualized in the calibration images for teh user"""
 
         aruco_dict = aruco.aruco_dict  # dictionary of the code convention
         aruco_parameters = aruco.aruco_params  # detector parameters
@@ -538,32 +590,43 @@ class CoBeCalib(object):
         detector.setDetectorParameters(aruco_parameters)
         for eye_name, eye_dict in eyes.items():
             # detect aruco codes
-            corners, ids, rejected_points = detector.detectMarkers(eye_dict["calibration_frame"])
-            print(f"Detected {len(corners)} ARUCO codes in {eye_name} calibration frame.")
-            eye_dict["detected_aruco"] = {"corners": corners, "ids": ids, "rejected_points": rejected_points}
-            eye_dict["calibration_score"] = len(corners) / (aruco.num_codes_per_row ** 2)
-            # saving annotated image
-            eye_dict["calibration_frame_annot"] = cv2.aruco.drawDetectedMarkers(eye_dict["calibration_frame"],
-                                                                                eye_dict["detected_aruco"]["corners"],
-                                                                                eye_dict["detected_aruco"]["ids"])
-            if with_visualization:
-                # show image
-                cv2.imshow(eye_name, eye_dict["calibration_frame_annot"])
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
-                cv2.waitKey(1)
+            try:
+                corners, ids, rejected_points = detector.detectMarkers(eye_dict["calibration_frame"])
+                logger.info(f"Detected {len(corners)} ARUCO codes in {eye_name} calibration frame.")
+                eye_dict["detected_aruco"] = {"corners": corners, "ids": ids, "rejected_points": rejected_points}
+                eye_dict["calibration_score"] = len(corners) / (aruco.num_codes_per_row ** 2)
+                # saving annotated image
+                eye_dict["calibration_frame_annot"] = cv2.aruco.drawDetectedMarkers(eye_dict["calibration_frame"],
+                                                                                    eye_dict["detected_aruco"]["corners"],
+                                                                                    eye_dict["detected_aruco"]["ids"])
+                if with_visualization:
+                    # show image
+                    cv2.imshow(eye_name, eye_dict["calibration_frame_annot"])
+                    cv2.waitKey(0)
+                    cv2.destroyAllWindows()
+                    cv2.waitKey(1)
+
+            except Exception as e:
+                logger.error(e)
+                logger.error(f"Could not detect ARUCO codes in {eye_name} calibration frame. This can either come from "
+                             f"an empty calibration image or from no codes on the image. Be sure that the camera module"
+                             f"is intact, the calibration image is properly projected and the streaming server on the"
+                             f"eye is enabled (cobe.settings.vision.publish_mjpeg_stream = True)!")
 
     def interpolate_xy_maps(self, eyes, with_visualization=False, detach=False):
         """Generating a map of xy coordinate maps for each eye that maps any pixel of the camera to the corresponding
         pixel of the projector. This is done by interpolating the xy detections of ARUCO codes in the calibration frames
-        of the eyes."""
+        of the eyes.
+        :param eyes: dictionary of eyes
+        :param with_visualization: if True, the ARUCO codes are visualized in the calibration images for the user
+        :param detach: if True, the interpolation is done in a separate process"""
         # getting x coordinates of detected aruco code centers
         for eye_name, eye_dict in eyes.items():
             if eye_dict["calibration_score"] < 0.2:
-                print(f"Calibration score of {eye_name} is too low (<0.2). Please check the calibration frame.")
+                logger.info(f"Calibration score of {eye_name} is too low (<0.2). Please check the calibration frame.")
                 continue
             else:
-                print(f"Calibration score of {eye_name} is {eye_dict['calibration_score']}.")
+                logger.info(f"Calibration score of {eye_name} is {eye_dict['calibration_score']}.")
             # get corners of detected aruco codes
             corners = eye_dict["detected_aruco"]["corners"]
             # get ids of detected aruco codes
@@ -707,7 +770,8 @@ class CoBeCalib(object):
 
     def extrapolate_xy_maps_scipy(self, eyes):
         """Not only interpolating real xy coordinates of the projector for each pixel of the camera, but also
-        extrapolating for whole image space outside of the range of presented ARUCO codes. """
+        extrapolating for whole image space outside the range of presented ARUCO codes.
+        :param eyes: dictionary containing eye information"""
         for eye_name, eye_dict in eyes.items():
             # get corners of detected aruco codes
             corners = eye_dict["detected_aruco"]["corners"]
@@ -731,7 +795,6 @@ class CoBeCalib(object):
             ynew = ynew.flatten()
 
             # Interpolation with scipy.interpolate.Rbf
-
             from scipy.interpolate import Rbf
             rbf3 = Rbf(x, y, z, function="multiquadric", smooth=5)
             znew = rbf3(xnew, ynew)
@@ -751,7 +814,9 @@ class CoBeCalib(object):
         # plain white image
         calibration_image = np.ones((aruco.proj_calib_image_height, aruco.proj_calib_image_width), dtype=np.uint8) * 255
         # generate QR codes
+        logger.debug("Generating ARUCO codes for calibration image")
         for id, (xproj, yproj) in aruco.aruco_id_to_proj_pos.items():
+            logger.debug(f"Encoding ARUCO code {id} at position ({xproj}, {yproj})")
             # generate ARUCO code
             aruco_code = aruco_dict.generateImageMarker(id, aruco.code_size)
             aruco_code = np.pad(aruco_code, aruco.pad_size, mode='constant', constant_values=255)
@@ -768,6 +833,5 @@ class CoBeCalib(object):
             plt.imshow(img, cmap="gray")
             plt.show(block=not detach)
         else:
+            logger.debug("Returning calibration image")
             return calibration_image
-
-        # todo: save image or send to projection stack
