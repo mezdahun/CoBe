@@ -210,12 +210,12 @@ class CoBeEye(object):
             command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-            logger.info("Inference server container created and started with pid ", pid)
+            logger.info("Inference server container created and started with pid %s" % pid)
             self.inference_server_id = pid
         else:
             command = "docker start %s" % self.inference_server_id
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-            logger.info("Inference server container was found and (re)started with pid ", pid)
+            logger.info("Inference server container was found and (re)started with pid %s" % pid)
             logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
                            "won't be found. For the first time you will need internet access to download the model.")
         return pid
