@@ -390,7 +390,7 @@ class CoBeMaster(object):
                                         matplotlib plot
         :param target_eye_name: name of the eye for which remapping should be visualized (only if show_simulation_space
                                 is True)
-        :param t_max: maximum number of iterations after which automatically quitting, otherwise press q"""
+        :param t_max: maximum number of iterations after which automatically quitting, otherwise press ESC"""
 
         # Preparing eyes for running
         logger.info("Starting rendering stack...")
@@ -425,6 +425,7 @@ class CoBeMaster(object):
 
         try:
             try:
+                logger.info("CoBe has been started! Press ESC long to quit.")
                 for frid in range(t_max):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
@@ -493,6 +494,15 @@ class CoBeMaster(object):
                             else:
                                 raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
+                            with keyboard.Events() as events:
+                                # Block at most 0.1 second
+                                event = events.get(0.01)
+                                if event is None:
+                                    pass
+                                elif event.key == keyboard.Key.esc:
+                                    logger.info("Quitting requested by user. Exiting...")
+                                    return
+
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                 logger.warning(
@@ -508,7 +518,7 @@ class CoBeMaster(object):
                 logger.error(e)
 
         except KeyboardInterrupt:
-            logger.error("Interrupt requested by user. Exiting... (For normal business use 'q' to quit!)")
+            logger.error("Interrupt requested by user. Exiting... (For normal business press 'ESC' long to quit!)")
 
         # todo: decide on cleaning up inference servers here or in the cleanup function
 
