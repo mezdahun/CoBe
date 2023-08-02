@@ -215,7 +215,7 @@ class CoBeEye(object):
             logger.info("Inference server container was found and (re)started with pid ", pid)
             logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
                            "won't be found. For the first time you will need internet access to download the model.")
-        return response
+        return pid
 
     @expose
     def stop_inference_server(self):
