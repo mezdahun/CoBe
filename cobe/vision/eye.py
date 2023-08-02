@@ -229,7 +229,7 @@ class CoBeEye(object):
 
         command = "docker stop " + str(self.inference_server_id)
         pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        logger.info("Inference server container was stopped with pid ", pid)
+        logger.info("Inference server container was stopped with pid %s" % pid)
         return pid
 
     @oneway
@@ -242,7 +242,7 @@ class CoBeEye(object):
 
         command = "docker rm " + str(self.inference_server_id)
         pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
-        logger.info("Inference server container was removed with pid ", pid)
+        logger.info("Inference server container was removed with pid %s" % pid)
         self.inference_server_id = None
         return pid
 
