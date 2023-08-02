@@ -20,15 +20,15 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
     :param num_prey: number of prey
     :return: does not return anything"""
 
-    print("Clearing volume folder of .json files")
+    logger.info("Clearing PModule docker volume folder of .json files")
     clear_directory(f"{os.path.join(ps.root_folder, ps.output_folder)}")
 
     if not is_process_running("Docker Desktop.exe"):
-        print("Launching Docker")
+        logger.info("Launching PModule Docker")
         subprocess.Popen(ps.docker_path)
         sleep(ps.docker_startup_timeout)
     else:
-        print("Docker already running")
+        logger.info("PModule Docker already running")
 
     continue_initialization = True
 
@@ -45,17 +45,17 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
                 f'cmd /c \"docker container inspect -f \'{{{{.State.Running}}}}\' {decoded_id}\"', shell=True)
             if running_container_using_image.decode().find('true'):
                 # If so, then the PModule is already running, or a version of it is at least.
-                print("It looks like the PModule is already running. Skipping the rest of the initialization")
+                logger.info("PModule is already running.")
                 continue_initialization = False
                 break
 
     if continue_initialization:
-        print("Loading P-module docker image")
+        logger.info("Loading PModule docker image")
         try:
             # First attempt to clear any image that exists by the same name
             os.system(f'cmd /c "docker image rm {ps.docker_image_name}"')
         except:
-            print("Couldn't remove image, probably doesn't exist [Pmodule:entry_start_docker_container]]")
+            logger.info("Couldn't remove PModule docker image, probably doesn't exist.")
             pass
 
         tar_path = os.path.join(ps.root_folder, ps.tar_file)
@@ -64,26 +64,27 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
         else:
             raise Exception("Docker image not found under path: " + tar_path)
 
-        print("Starting P-module docker container")
+        logger.info("Starting PModule docker container")
         os.system(
-            f'cmd /c "docker run --name cont '
+            f'cmd /c "docker run --name {ps.docker_container_name} '
             f'-v {ps.root_folder}:{ps.root_folder_on_container} '
             f'-t -d {ps.docker_image_name} sh run.sh -b {batch_size} -n {num_prey}"')
         # todo: explicitly set the arena size in the container with pmodule settings and also add this when
-        #       rescaling for projection stack. Magic numbers should go!
+        #       rescaling for projection stack. Magic numbers should go! Add all other simulation parameters for
+        #       the PModule as well for transparency.
 
 
 def entry_cleanup_docker_container():
     """Stops and removes the docker container of the Pmodule via command line"""
-    print("Clearing volume folder of .json files")
+    logger.info("Clearing volume folder of .json files")
     clear_directory(f"{os.path.join(ps.root_folder, 'current')}")
 
-    print("Stopping P-module container...")
-    os.system('cmd /c "docker kill cont"')
+    logger.info("Stopping PModule container...")
+    os.system(f'cmd /c "docker kill {ps.docker_container_name}"')
     sleep(2)
 
-    print("Removing P-module container...")
-    os.system('cmd /c "docker rm cont"')
+    logger.info("Removing PModule container...")
+    os.system(f'cmd /c "docker rm {ps.docker_container_name}"')
 
 
 def generate_pred_json(position_list):
@@ -102,7 +103,7 @@ def generate_pred_json(position_list):
     ]
     """
     # generating filename with timestamp
-    filename = f"out_pred.json"
+    filename = ps.predator_filename
 
     # generating list of predator dictionaries
     output_list = []
