@@ -20,8 +20,8 @@ display_height = os.getenv("DISPLAY_HEIGHT", 416)  # fisheye calibration maps sh
 
 end_x = min(start_x + crop_width, capture_width)  # end cropping at this x coordinate
 end_y = min(start_y + crop_height, capture_height)  # end cropping at this y coordinate
-frame_rate = os.getenv("FRAME_RATE", 5)
+frame_rate = os.getenv("FRAME_RATE", 10)
 
 ### Published MJPEG stream settings ###
-publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", True)
+publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", False)
 mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
