@@ -271,14 +271,16 @@ class CoBeMaster(object):
         xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
         # todo: implement remapping with extrapolated values if interpolated values are not valid
         # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
-        if xreal is None:
+        if xreal is None or yreal is None:
             x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
             # find index of closest y value in eyes calibration map to provided ycam
-            xreal = 0  # eye_dict["cmap_xmap_extrap"][y_index, x_index]
-        if yreal is None:
+            logger.debug("No interpolated value found for xcam!")
             y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
             # find index of closest y value in eyes calibration map to provided ycam
-            yreal = 0  # eye_dict["cmap_ymap_extrap"][y_index, x_index]
+            logger.debug("No interpolated value found for ycam!")
+            xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
+            yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
+
         # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
         logger.debug(f"xreal: {xreal}, yreal: {yreal}")
@@ -461,10 +463,11 @@ class CoBeMaster(object):
                                     # remapping detection point to simulation space according to ARCO map
                                     xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
 
-                                    if xreal != 0 or yreal != 0:
+                                    if not (xreal == 0 and yreal == 0):
                                         # showing predator coordinates if requested
                                         if show_simulation_space:
                                             if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                                                logger.warning("Masked remapped values detected!")
                                                 xreal, yreal = 0, 0
 
                                             axcam.clear()

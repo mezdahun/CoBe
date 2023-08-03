@@ -112,7 +112,7 @@ class RenderingStack(object):
         if not self.sender:
             logger.warning("TCP sender does not exist, creating sender...")
             self.sender = self.create_tcp_sender(rs.ip_address, rs.port)
-            logger.debug("sender created: ", self.sender)
+            logger.debug(f"sender created: {self.sender}")
 
         try:
             logger.info("Sending message to TCP sender...")
