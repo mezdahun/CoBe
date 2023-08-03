@@ -28,7 +28,9 @@ setup(
             'pyzbar',  # for QR code reading, on non-windows system additional steps needed
             'opencv-python==4.7.0.72',
             'matplotlib',
-            'scipy'
+            'scipy',
+            'pynput',
+            'psutil'
         ]
     },
     entry_points={
@@ -37,6 +39,9 @@ setup(
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
                             "cobe-master-calibrate=cobe.app:calibrate",
+                            "cobe-master-test-stream=cobe.app:test_stream",
+                            "cobe-master-collect-pngs=cobe.app:collect_pngs",
+                            "cobe-master-shutdown-rendering=cobe.app:shutdown_rendering",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },

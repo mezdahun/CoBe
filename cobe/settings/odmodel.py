@@ -1,4 +1,7 @@
 """Settings of the object detection model trained on roboflow server"""
+# inference docker server name
+inf_server_cont_name = "roboflow_inference_container"
+
 # api_key to be able to download model from roboflow server
 api_key = "gX0Zo9eq9sRf7wfJNDMH"
 # # model name
@@ -9,8 +12,8 @@ api_key = "gX0Zo9eq9sRf7wfJNDMH"
 # version = "2"
 
 # model name
-model_name = "face-detection-mik1i"
+model_name = "cobe"  # "face-detection-mik1i"
 # url of the background roboflow inference server container (with ending /)
 inf_server_url = "http://localhost:9001/"
 model_id = "/" + model_name
-version = "15"
+version = "2"  #"15"

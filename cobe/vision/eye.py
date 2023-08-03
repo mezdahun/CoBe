@@ -15,19 +15,28 @@ import os
 import subprocess
 import threading
 
+import logging  # must be imported and set before pyro
+from cobe.settings import logs
+logging.basicConfig(level=logs.log_level, format=logs.log_format)
+logger = logs.setup_logger("vision")
+
 import numpy as np
-from Pyro5.api import expose, behavior, serve, oneway
+from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
 from cobe.tools.detectiontools import annotate_detections
-from cobe.settings import vision
+from cobe.settings import vision, odmodel
 from cobe.vision import web_vision
 
 
 def gstreamer_pipeline(
         capture_width=vision.capture_width,
         capture_height=vision.capture_height,
+        start_x=vision.start_x,
+        start_y=vision.start_y,
+        end_x=vision.end_x,
+        end_y=vision.end_y,
         display_width=vision.display_width,
         display_height=vision.display_height,
         framerate=vision.frame_rate,
@@ -35,13 +44,35 @@ def gstreamer_pipeline(
 ):
     """Returns a GStreamer pipeline string to start stream with the CSI camera
     on nVidia Jetson Nano"""
+    logger.info("Creating GStreamer pipeline string with the following parameters:"
+                "capture_width: %d, "
+                "capture_height: %d, "
+                "start_x: %d, "
+                "start_y: %d, "
+                "end_x: %d, "
+                "end_y: %d, "
+                "display_width: %d, "
+                "display_height: %d, "
+                "framerate: %d, "
+                "flip_method: %d" % (
+                    capture_width,
+                    capture_height,
+                    start_x,
+                    start_y,
+                    end_x,
+                    end_y,
+                    display_width,
+                    display_height,
+                    framerate,
+                    flip_method
+                ))
     return (
             "nvarguscamerasrc ! "
             "video/x-raw(memory:NVMM), "
-            "width=(int)%d, height=(int)%d, "
-            "format=(string)NV12, framerate=(fraction)%d/1 ! "
-            "nvvidconv flip-method=%d ! "
-            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
+            "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
+            "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
+            "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
+            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "  # resize image
             "videoconvert ! "
             "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
             % (
@@ -49,8 +80,12 @@ def gstreamer_pipeline(
                 capture_height,
                 framerate,
                 flip_method,
+                start_x,
+                end_x,
+                start_y,
+                end_y,
                 display_width,
-                display_height,
+                display_height
             )
     )
 
@@ -92,10 +127,29 @@ class CoBeEye(object):
         # pyro5 daemon stopping flag
         self._is_running = True
 
+        # sudo pswd
+        self.pswd = None
+
+    @expose
+    def has_pswd(self):
+        """Returns whether the eye has a password set"""
+        logger.debug("Password status requested.")
+        if self.pswd is None:
+            return False
+        else:
+            return True
+
+    @expose
+    def set_pswd(self, pswd):
+        """Sets the password of the eye"""
+        self.pswd = pswd
+        logger.info("Password set.")
+
     @expose
     def set_fisheye_calibration_map(self, calibration_map):
         """Sets the fisheye calibration map for the eye"""
         self.fisheye_calibration_map = calibration_map
+        logger.info("Fisheye calibration map set.")
 
     def is_running(self):
         """Returns the running status of the eye"""
@@ -109,89 +163,110 @@ class CoBeEye(object):
         self.streaming_server.eye_id = self.id
         self.streaming_thread = threading.Thread(target=self.streaming_server.serve_forever)
         self.streaming_thread.start()
+        logger.info("Streaming server started with address %s and port %d" % (self.local_ip, port))
 
     @expose
     def initODModel(self, api_key, model_name, inf_server_url, model_id, version):
         """Initialize the object detection model with desired model parameters"""
-        print("Initializing object detection model")
         # Definign the object detection model instance
         self.detector_model = ObjectDetectionModel(api_key=api_key,
                                                    name=model_name,
                                                    id=model_id,
                                                    local=inf_server_url,
                                                    version=version)
-        print(model_name, inf_server_url, model_id, version)
         # Carry out a single prediction to initialize the model weights
         # todo: carry out a single prediction but with a wrapper that also captures a single image from camera
         # self.detector_model.predict(None)
-        print("Object detector initialized for eye ", self.id)
-        print(self.detector_model.api_url)
+        logger.info("Object detection model initialized with parameters: %s, %s, %s, %s" % (
+                    model_name, inf_server_url, model_id, version))
 
-    @oneway
+    def search_for_docker_container(self):
+        """Searches for a docker container with a given container name"""
+        command = 'docker ps -a --filter=name=%s' % odmodel.inf_server_cont_name
+        logger.info("created command")
+        response = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command)).splitlines()
+        logger.info("got response")
+        if len(response) > 1:
+            container_id = response[1].split()[0]
+            logger.info("Found docker container with id %s" % container_id)
+        else:
+            container_id = None
+            logger.info("No docker container found with name %s" % odmodel.inf_server_cont_name)
+        return container_id
+
     @expose
-    def start_inference_server(self, nano_password):
+    def start_inference_server(self):
         """Starts the roboflow inference server via docker."""
+        # # First searching for a previously created inference container.
+        # # Note, if you want to deploy a newly trained model, first cleanup the containers, so they won't be found
+        found_cid = self.search_for_docker_container()
+        if found_cid is not None:
+            self.inference_server_id = found_cid
+
         if self.inference_server_id is None:
-            command = "docker run --net=host --gpus all -d roboflow/inference-server:jetson"
+            command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
-            pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
-            print("Inference server started with pid ", pid)
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+            logger.info("Inference server container created and started with pid %s" % pid)
             self.inference_server_id = pid
         else:
-            print("Inference server already running with pid ", self.inference_server_id)
+            command = "docker start %s" % self.inference_server_id
+            pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+            logger.info("Inference server container was found and (re)started with pid %s" % pid)
+            logger.warning("If you want to deploy a newly trained model, first cleanup the containers, so they "
+                           "won't be found. For the first time you will need internet access to download the model.")
         return pid
 
-    @oneway
     @expose
-    def stop_inference_server(self, nano_password):
+    def stop_inference_server(self):
         """Stops the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not found. Nothing to stop!")
+            logger.warning("Inference server not found. Nothing to stop!")
             return None
 
         command = "docker stop " + str(self.inference_server_id)
-        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
-        print("Inference server stopped with pid ", pid)
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+        logger.info("Inference server container was stopped with pid %s" % pid)
         return pid
 
     @oneway
     @expose
-    def remove_inference_server(self, nano_password):
+    def remove_inference_server(self):
         """Removes the roboflow inference server via docker."""
         if self.inference_server_id is None:
-            print("Inference server not found. Nothing to remove!")
+            logger.warning("Inference server not found. Nothing to remove!")
             return None
 
         command = "docker rm " + str(self.inference_server_id)
-        pid = subprocess.getoutput('echo %s|sudo -S %s' % (nano_password, command))
-        print("Inference server removed with pid ", pid)
+        pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
+        logger.info("Inference server container was removed with pid %s" % pid)
         self.inference_server_id = None
         return pid
 
     @expose
     def return_id(self):
         """This is exposed on the network and can have a return value"""
-        print(f"ID requested and returned: {self.id}")
+        logger.debug(f"ID was requested and returned: {self.id}")
         return self.id
 
     def get_frame(self, img_width, img_height):
         """getting single camera frame according to stream parameters and resizing it to desired dimensions"""
-        if self.map1 is None and self.fisheye_calibration_map is not None:
-            cmap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'calibration_maps', self.fisheye_calibration_map)
-            print(f"Fisheye map file provided but not yet loaded, loading it first from {cmap_path}...")
-            maps = np.load(cmap_path)
-            self.map1, self.map2 = maps["map1"], maps["map2"]
-            print("Fisheye map file loaded successfully")
+        # if self.map1 is None and self.fisheye_calibration_map is not None:
+        #     cmap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'calibration_maps', self.fisheye_calibration_map)
+        #     print(f"Fisheye map file provided but not yet loaded, loading it first from {cmap_path}...")
+        #     maps = np.load(cmap_path)
+        #     self.map1, self.map2 = maps["map1"], maps["map2"]
+        #     print("Fisheye map file loaded successfully")
 
         t_cap = datetime.datetime.now()
-        print("Taking single frame")
+        logger.debug("Taking single frame.")
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
 
-        if self.map1 is not None:
-            # undistorting image according to fisheye calibration map
-            imgo = cv2.remap(imgo, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
-                             borderMode=cv2.BORDER_CONSTANT)
+        # if self.map1 is not None:
+        #     # undistorting image according to fisheye calibration map
+        #     imgo = cv2.remap(imgo, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
+        #                      borderMode=cv2.BORDER_CONSTANT)
 
         # resizing image to requested w and h
         img = cv2.resize(imgo, (img_width, img_height))
@@ -203,9 +278,9 @@ class CoBeEye(object):
         """Used for calibrating the camera with ARUCO codes by publishing a single high resolution image on the
         local network."""
         if width is None:
-            width = vision.capture_width
+            width = vision.display_width
         if height is None:
-            height = vision.capture_height
+            height = vision.display_height
         # taking single image with max possible resolution given the GStreamer pipeline
         img, t_cap = self.get_frame(img_width=width, img_height=height)
         # adding high resolution image to calibration frame to publish on local network
@@ -214,39 +289,36 @@ class CoBeEye(object):
                 self.setup_streaming_server()
             self.streaming_server.calib_frame = img
         else:
-            print("MJPEG stream not enabled when eye was initialized. Cannot publish calibration frame."
-                  "Set vision.publish_mjpeg_stream to True and restart eye.")
-
-
-    @expose
-    def test_dict_return_latency(self):
-        """Testing return latency of dictionaries via Pyro5"""
-        test_dict = {"test": "test"}
-        return test_dict, datetime.datetime.now()
+            logger.error("MJPEG stream not enabled when eye was initialized. Cannot publish calibration frame."
+                         "Set vision.publish_mjpeg_stream to True and restart eye.")
 
     @expose
     def shutdown(self):
         """Shutting down the eye by setting the Daemon's loop condition to False"""
         self._is_running = False
+        logger.info("Eye shutdown initiated.")
+        raise KeyboardInterrupt
 
     @expose
-    def inference(self, confidence=40, img_width=320, img_height=200):
+    def inference(self, confidence=40, img_width=416, img_height=416):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
         try:
             detections = self.detector_model.predict(img, confidence=confidence)
         except KeyError:
-            print("KeyError in roboflow inference code, can mean that your authentication"
-                  "is invalid to the inference server.")
+            logger.error("KeyError in roboflow inference code, can mean that your authentication"
+                         "is invalid to the inference server or you are over quota.")
 
         preds = detections.json().get("predictions")
 
-        # removing image path from predictions
+        # removing image path from predictions as it will hold the whole array
         for pred in preds:
             del pred["image_path"]
 
-        # # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
+        logger.debug(f"Number of predictions: {len(preds)}")
+
+        # annotating the image with bounding boxes and labels and publish on mjpeg streaming server
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
@@ -273,7 +345,7 @@ def main(host="localhost", port=9090):
     with Daemon(host, port) as daemon:
         eye_instance = CoBeEye()
         uri = daemon.register(eye_instance, objectId="cobe.eye")
-        print(uri)
+        logger.info(f"Pyro5 daemon started on {host}:{port} with URI {uri}")
         daemon.requestLoop(eye_instance.is_running)
 
 
