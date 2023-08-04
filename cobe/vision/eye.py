@@ -10,6 +10,8 @@ They
 """
 import argparse
 import datetime
+import time
+
 import cv2
 import os
 import subprocess
@@ -297,6 +299,7 @@ class CoBeEye(object):
         """Shutting down the eye by setting the Daemon's loop condition to False"""
         self._is_running = False
         logger.info("Eye shutdown initiated.")
+        time.sleep(3)
         raise KeyboardInterrupt
 
     @expose
