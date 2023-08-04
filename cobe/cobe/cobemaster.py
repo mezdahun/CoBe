@@ -266,24 +266,46 @@ class CoBeMaster(object):
         """Remaps a detection point from camera space to real space according to the calibration maps."""
         # First trying to get a more accurate interpolated value from the calibration map
         # find index of closest x value in eyes calibration map to provided xcam
+        # x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # logger.debug(f"xcam: {xcam}, x_index: {x_index}")
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # logger.debug(f"ycam: {ycam}, y_index: {y_index}")
+        # # return the real space coordinates for the provided camera space coordinates
+        # xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
+        # # todo: implement remapping with extrapolated values if interpolated values are not valid
+        # # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
+        # if xreal is None or yreal is None:
         x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
-        logger.debug(f"xcam: {xcam}, x_index: {x_index}")
         # find index of closest y value in eyes calibration map to provided ycam
+        logger.debug("No interpolated value found for xcam!")
         y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
-        logger.debug(f"ycam: {ycam}, y_index: {y_index}")
-        # return the real space coordinates for the provided camera space coordinates
-        xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
-        # todo: implement remapping with extrapolated values if interpolated values are not valid
-        # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
-        if xreal is None or yreal is None:
-            x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
-            # find index of closest y value in eyes calibration map to provided ycam
-            logger.debug("No interpolated value found for xcam!")
-            y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
-            # find index of closest y value in eyes calibration map to provided ycam
-            logger.debug("No interpolated value found for ycam!")
-            xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
-            yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        # find index of closest y value in eyes calibration map to provided ycam
+        logger.debug("No interpolated value found for ycam!")
+        xreal = eye_dict["cmap_xmap_interp"][y_index, x_index]
+        yreal = eye_dict["cmap_ymap_interp"][y_index, x_index]
+        logger.warning(f"xcam: {xcam}, x_index interpol: {x_index}")
+        logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
+        logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
+
+
+        x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
+        # find index of closest y value in eyes calibration map to provided ycam
+        logger.debug("No interpolated value found for xcam!")
+        y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
+        # find index of closest y value in eyes calibration map to provided ycam
+        logger.debug("No interpolated value found for ycam!")
+        xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
+        yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        logger.info(f"X  - min extrap: {np.min(eye_dict['cmap_xmap_extrap'])}, max: {np.max(eye_dict['cmap_xmap_extrap'])}")
+        logger.info(f"Y  - min extrap: {np.min(eye_dict['cmap_ymap_extrap'])}, max: {np.max(eye_dict['cmap_ymap_extrap'])}")
+        logger.info(f"X  - min interp: {np.nanmin(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        logger.info(f"Y  - min interp: {np.nanmin(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        logger.warning(f"xcam: {xcam}, x_index extrapol: {x_index}")
+        logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
+        logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
+        # xreal, yreal = 0, 0
+
 
         # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
