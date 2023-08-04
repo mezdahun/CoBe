@@ -25,3 +25,10 @@ frame_rate = os.getenv("FRAME_RATE", 10)
 ### Published MJPEG stream settings ###
 publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", True)
 mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
+
+### Mapping parameters
+# resolution of interpolated map
+interp_map_res = os.getenv("INTERP_MAP_RES", 500)
+# number of points to use for extrapolation on sides of map
+extrap_skirt = 50
+
