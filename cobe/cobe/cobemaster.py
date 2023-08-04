@@ -489,15 +489,19 @@ class CoBeMaster(object):
 
                                         # scaling down the coordinates from the original calibration image size to the
                                         # simulation space
+                                        extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
+                                                                    vision.interp_map_res
+                                        theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
+                                        centering_const = theoretical_extrap_space_size / 2
                                         xreal, yreal = xreal * (
-                                                (2 * max_abs_coord) / aruco.proj_calib_image_width) - max_abs_coord, \
+                                                theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
                                                        yreal * (
-                                                (2 * max_abs_coord) / aruco.proj_calib_image_height) - max_abs_coord
+                                                theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
 
                                         # matching directions in simulation space
                                         xreal, yreal = yreal, -xreal
 
-                                        # todo: simplify this by merging the 2 scaling commands
+                                        # todo: simplify this by merging the 2 scaling commandscobe-pm
 
                                         predator_positions.append([xreal, yreal])
                                         logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
@@ -664,36 +668,57 @@ class CoBeCalib(object):
             # get y coordinates of detected aruco code centers
             y = centers[:, 1]
 
+            num_data_points = vision.interp_map_res  # resolution of the interpolated map will be shape N x N
+            skirt = 0.1  # number of pixels to add to the border of the map to avoid edge effects
+
+            #todo: cleanup
             # Create grid values first.
-            xi = np.linspace(min(x) - 0.1, max(x) + 0.1, int(max(x) - min(x)))
-            yi = np.linspace(min(y) - 0.1, max(y) + 0.1, int(max(y) - min(y)))
+            xi = np.linspace(min(x) - 0.1, max(x) + 0.1, num=num_data_points)
+            dx = (max(x) + 0.1 - (min(x) - 0.1)) / (num_data_points - 1)
+            yi = np.linspace(min(y) - 0.1, max(y) + 0.1, num=num_data_points)
+            dy = (max(y) + 0.1 - (min(y) - 0.1)) / (num_data_points - 1)
+
+            # # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
+            # triang = tri.Triangulation(x, y)
+            # interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in
+            #                                                         range(len(ids))])
+            # interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in
+            #                                                         range(len(ids))])
+            Xi, Yi = np.meshgrid(xi, yi)  # interpolation range (ARUCO covered image area)
+            # xreal = interpolator_xreal(Xi, Yi)
+            # yreal = interpolator_yreal(Xi, Yi)
+
+            from scipy.interpolate import LinearNDInterpolator, InterpolatedUnivariateSpline
 
             # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
-            triang = tri.Triangulation(x, y)
-            interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in
-                                                                    range(len(ids))])
-            interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in
-                                                                    range(len(ids))])
-            Xi, Yi = np.meshgrid(xi, yi)  # interpolation range (ARUCO covered image area)
-            xreal = interpolator_xreal(Xi, Yi)
-            yreal = interpolator_yreal(Xi, Yi)
+            interp_xreal = LinearNDInterpolator(list(zip(x, y)),
+                                                [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))])
+            xreal = interp_xreal(Xi, Yi)
+            interp_yreal = LinearNDInterpolator(list(zip(x, y)),
+                                                [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
+            yreal = interp_yreal(Xi, Yi)
+
+
             eye_dict["cmap_xmap_interp"] = xreal
             eye_dict["cmap_ymap_interp"] = yreal
             eye_dict["cmap_x_interp"] = xi
             eye_dict["cmap_y_interp"] = yi
 
             # Extrapolating data outside the ARUCO covered range
-            ext_range = 50
-            xs = np.linspace(min(xi) - ext_range, max(xi) + ext_range)
-            ys = np.linspace(min(yi) - ext_range, max(yi) + ext_range)
+            ext_num_points = vision.extrap_skirt  # number of points to extrapolate
+            ext_range_x = ext_num_points * dx  # extrapolation range (whole image area)
+            ext_range_y = ext_num_points * dy  # extrapolation range (whole image area)
+            num_data_points = num_data_points + 2 * ext_num_points  # resolution of the interpolated map will be shape N x N
+            xs = np.linspace(min(xi) - ext_range_x, max(xi) + ext_range_x, num=num_data_points)
+            ys = np.linspace(min(yi) - ext_range_y, max(yi) + ext_range_y, num=num_data_points)
             xnew, ynew = np.meshgrid(xs, ys)  # extrapolation range (whole image area)
             xnew = xnew.flatten()
             ynew = ynew.flatten()
 
             rbf3_xreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))],
-                             function="multiquadric", smooth=5)
+                             function="multiquadric", smooth=0)
             rbf3_yreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))],
-                             function="multiquadric", smooth=5)
+                             function="multiquadric", smooth=0)
             xreal_extra = rbf3_xreal(xnew, ynew)
             yreal_extra = rbf3_yreal(xnew, ynew)
             xreal_extra_reshaped = xreal_extra.reshape((len(ys), len(xs)))
@@ -705,7 +730,7 @@ class CoBeCalib(object):
 
             if with_visualization:
                 # Visualization
-                fig, ax = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
+                fig, ax = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True)
 
                 # Show image with detections
                 plt.axes(ax[0, 0])
@@ -729,6 +754,7 @@ class CoBeCalib(object):
                 # Show interpolated real x coordinates
                 plt.axes(ax[0, 1])
                 ax[0, 1].contour(xi, yi, xreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                ax[0, 1].imshow(xreal, cmap="RdBu_r", origin='lower')
                 cntr1 = ax[0, 1].contourf(xi, yi, xreal, levels=14, cmap="RdBu_r")
 
                 ax[0, 1].plot(x, y, 'ko', ms=3)
@@ -743,6 +769,7 @@ class CoBeCalib(object):
                 # Show interpolated real y coordinates
                 plt.axes(ax[1, 1])
                 ax[1, 1].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                ax[1, 1].imshow(yreal, cmap="RdBu_r", origin='lower')
                 cntr1 = ax[1, 1].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
 
                 ax[1, 1].plot(x, y, 'ko', ms=3)
@@ -758,11 +785,10 @@ class CoBeCalib(object):
                 plt.axes(ax[0, 2])
                 # showing extrapolated values
                 ax[0, 2].contour(xs, ys, xreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
+                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 cntr1 = ax[0, 2].contourf(xs, ys, xreal_extra_reshaped, levels=50, cmap="RdBu_r",
-                                          vmin=np.min(xreal), vmax=np.max(xreal))
-                # showing interpolated values for double check
-                ax[0, 2].contour(xi, yi, xreal, levels=14, linewidths=0.5, colors='k', origin='lower')
-                cntr1 = ax[0, 2].contourf(xi, yi, xreal, levels=14, cmap="RdBu_r")
+                                          vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+
                 ax[0, 2].plot(x, y, 'ko', ms=3)
                 plt.xlabel("camera x")
                 plt.ylabel("camera y")
@@ -776,11 +802,12 @@ class CoBeCalib(object):
                 plt.axes(ax[1, 2])
                 # showing extrapolated values
                 ax[1, 2].contour(xs, ys, yreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
+                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 cntr1 = ax[1, 2].contourf(xs, ys, yreal_extra_reshaped, levels=50, cmap="RdBu_r",
-                                          vmin=np.min(yreal), vmax=np.max(yreal))
+                                          vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 # showing interpolated values for double check
-                ax[1, 2].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
-                cntr1 = ax[1, 2].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
+                # ax[1, 2].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                # cntr1 = ax[1, 2].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
                 ax[1, 2].plot(x, y, 'ko', ms=3)
                 plt.xlabel("camera x")
                 plt.ylabel("camera y")
@@ -789,6 +816,26 @@ class CoBeCalib(object):
                 plt.axis('scaled')
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+                x_real_nonans = xreal
+                x_real_nonans[np.isnan(xreal)] = 0
+                error = xreal_extra_reshaped[ext_num_points:-ext_num_points, ext_num_points:-ext_num_points] - x_real_nonans
+
+                # show extrapolated x coordinates
+                plt.axes(ax[0, 3])
+                # showing extrapolated values
+                ax[0, 3].imshow(error, cmap="RdBu_r", origin='lower')
+                ax[0, 3].plot(x, y, 'ko', ms=3)
+                plt.xlabel("camera x")
+                plt.ylabel("camera y")
+                plt.title("Extrapolation error (x)")
+                # keep aspect ratio original
+                plt.axis('scaled')
+                plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+                plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+                #todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
+                # polation when interpolation is not available.
 
                 # using tight layout
                 plt.tight_layout()
