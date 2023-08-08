@@ -113,6 +113,7 @@ class CoBeEye(object):
 
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         # Opening fisheye unwarping calibration maps
         self.fisheye_calibration_map = None
