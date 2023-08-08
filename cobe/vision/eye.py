@@ -306,6 +306,8 @@ class CoBeEye(object):
     @expose
     def inference(self, confidence=40, img_width=416, img_height=416):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
+        logger.info("Clearing capture buffer")
+        img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
         logger.info("Capturing frame")
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
