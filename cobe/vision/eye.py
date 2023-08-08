@@ -320,6 +320,7 @@ class CoBeEye(object):
                          "is invalid to the inference server or you are over quota.")
 
         preds = detections.json().get("predictions")
+        logger.info(preds)
 
         # removing image path from predictions as it will hold the whole array
         for pred in preds:
