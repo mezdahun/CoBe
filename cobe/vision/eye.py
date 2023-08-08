@@ -305,10 +305,13 @@ class CoBeEye(object):
     @expose
     def inference(self, confidence=40, img_width=416, img_height=416):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
+        logger.info("Capturing frame")
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
         try:
+            logger.info("Sending frame to inference server")
             detections = self.detector_model.predict(img, confidence=confidence)
+            logger.info("Received predictions from inference server")
         except KeyError:
             logger.error("KeyError in roboflow inference code, can mean that your authentication"
                          "is invalid to the inference server or you are over quota.")
@@ -325,7 +328,9 @@ class CoBeEye(object):
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
+            logger.info("Annotating image with bounding boxes and labels")
             self.streaming_server.frame = annotate_detections(img, preds)
+            logger.info("Image annotated and published on mjpeg streaming server")
 
         return preds
 

@@ -467,7 +467,9 @@ class CoBeMaster(object):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
                         try:
+                            logger.info("Asking for inference results...")
                             detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
+                            logger.info("Received inference results!")
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
