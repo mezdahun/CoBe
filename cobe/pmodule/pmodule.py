@@ -69,6 +69,27 @@ def entry_start_docker_container(batch_size=4, num_prey=50):
             f'cmd /c "docker run --name {ps.docker_container_name} '
             f'-v {ps.root_folder}:{ps.root_folder_on_container} '
             f'-t -d {ps.docker_image_name} sh run.sh -b {batch_size} -n {num_prey}"')
+        # os.system(
+        #     f'cmd /c "docker run --name {ps.docker_container_name} '
+        #     f'-v {ps.root_folder}:{ps.root_folder_on_container} '
+        #     f'-t -d {ps.docker_image_name} sh run.sh '
+        #     f'-a start '
+        #     f'-d {ps.sim_dt} '
+        #     f'-o {ps.batch_size} '
+        #     f'-M {ps.min_cluster_size} '
+        #     f'-N {ps.num_prey} '
+        #     f'-h {ps.repulsion_range} '
+        #     f'-Y {ps.repulsion_steepness} '
+        #     f'-H {ps.repulsion_strength} '
+        #     f'-U {ps.distance_cutoff} '
+        #     f'-A {ps.alignment_strength} '
+        #     f'-F {ps.flee_strength} '
+        #     f'-g {ps.flee_angle} '
+        #     f'-s {ps.flee_steepness} '
+        #     f'-i {ps.flee_range} '
+        #     f'-D {ps.noise_strength} '
+        #     f'-n {ps.num_predators} '
+        #     f'-O {ps.center_pull_radius}"')
         # todo: explicitly set the arena size in the container with pmodule settings and also add this when
         #       rescaling for projection stack. Magic numbers should go! Add all other simulation parameters for
         #       the PModule as well for transparency.
