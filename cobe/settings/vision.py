@@ -23,7 +23,7 @@ end_y = min(start_y + crop_height, capture_height)  # end cropping at this y coo
 frame_rate = os.getenv("FRAME_RATE", 10)
 
 ### Published MJPEG stream settings ###
-publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", True)
+publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", False)
 mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
 
 ### Mapping parameters
