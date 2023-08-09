@@ -467,9 +467,13 @@ class CoBeMaster(object):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
                         try:
+                            # timing framerate of calibration frames
+                            start_time = datetime.now()
                             logger.info("Asking for inference results...")
+                            # eye_dict["pyro_proxy"].get_calibration_frame()
                             detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
                             logger.info("Received inference results!")
+                            logger.info(detections)
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
@@ -529,12 +533,18 @@ class CoBeMaster(object):
 
                                         predator_positions.append([xreal, yreal])
                                         logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
+
                                     else:
                                         logger.info(f"No predator detected on eye {eye_name}")
 
                                 # generating predator position
                                 if len(predator_positions) > 0:
                                     generate_pred_json(predator_positions)
+                                # else:
+                                #     generate_pred_json([[0, 0]])
+                                # timing framerate of calibration frames
+                                end_time = datetime.now()
+                                logger.error(f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
                             else:
                                 raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
@@ -546,6 +556,9 @@ class CoBeMaster(object):
                                 elif event.key == keyboard.Key.esc:
                                     logger.info("Quitting requested by user. Exiting...")
                                     return
+
+                            # logger.info("Sleeping for 3 seconds...")
+                            # time.sleep(5)
 
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
