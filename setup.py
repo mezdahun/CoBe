@@ -30,18 +30,21 @@ setup(
             'matplotlib',
             'scipy',
             'pynput',
-            'psutil'
+            'psutil',
+            'fabric'
         ]
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
+                            "cobe-master-start-eyeserver=cobe.app:start_eyeserver",
                             "cobe-master-start=cobe.app:main",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
                             "cobe-master-calibrate=cobe.app:calibrate",
                             "cobe-master-test-stream=cobe.app:test_stream",
                             "cobe-master-collect-pngs=cobe.app:collect_pngs",
-                            "cobe-master-shutdown-rendering=cobe.app:shutdown_rendering",
+                            "cobe-rendering-shutdown=cobe.app:shutdown_rendering",
+                            "cobe-rendering-startup=cobe.app:startup_rendering",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
     },
