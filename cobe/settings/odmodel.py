@@ -16,5 +16,5 @@ model_name = "cobe"  # "face-detection-mik1i"
 # url of the background roboflow inference server container (with ending /)
 inf_server_url = "http://localhost:9001/"
 model_id = "/" + model_name
-version = "3"
+version = "4"
 
