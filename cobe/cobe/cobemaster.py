@@ -41,18 +41,24 @@ def filter_detections(detections):
     """Choosing correct detectionposition according to body parts"""
     # deciding which bunding box to use
     logger.debug("Filtering detections.")
+    stick_dets = [det for det in detections if det["class"] == "stick"]
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
-    if len(feet_dets) > 0:
-        logger.debug("Using feet detection.")
-        detections = feet_dets
-    elif len(trunk_dets) > 0:
-        logger.debug("Using trunk detection.")
-        detections = trunk_dets
-    elif len(head_dets) > 0:
-        logger.debug("Using head detection.")
-        detections = head_dets
+    if len(stick_dets) > 0:
+        logger.debug("Using stick detection.")
+        detections = stick_dets
+    else:
+        detections = []
+    # elif len(feet_dets) > 0:
+    #     logger.debug("Using feet detection.")
+    #     detections = feet_dets
+    # elif len(trunk_dets) > 0:
+    #     logger.debug("Using trunk detection.")
+    #     detections = trunk_dets
+    # elif len(head_dets) > 0:
+    #     logger.debug("Using head detection.")
+    #     detections = head_dets
 
     if len(detections) > 1:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
@@ -381,11 +387,19 @@ class CoBeMaster(object):
                 # print FPS with overwriting previous line
                 logger.info(f"FPS~ on eye {eye_name}: ", int(1 / delta_time.total_seconds()))
 
-    def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0"):
+    def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0", auto_freq=1.5):
         """Collecting and saving images from all eyes when s button is pressed.
         Quitting when q button is pressed.
         :param t_max: maximum number of iterations after which automatically quitting
-        :param target_eye_name: name of the eye for which images should be collected"""
+        :param target_eye_name: name of the eye for which images should be collected
+        :param auto_freq: 1/frequency in seconds at which images should be collected automatically
+        :interact space: press space to save image
+        :interact q: press q to quit
+        interact up: press up arrow to start automatic image collection"""
+        # attributes for autocapture feature
+        auto_on = False
+        timer = datetime.now()
+        switch_time = datetime.now()
         # path of current file
         file_path = os.path.dirname(os.path.realpath(__file__))
         # path of current directory
@@ -397,13 +411,24 @@ class CoBeMaster(object):
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
 
-        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, q to quit.")
+        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, ESC to quit, "
+                    f"SPACE to save image and UP to turn on/off autocapture")
         for it in range(t_max):
             for eye_name, eye_dict in self.eyes.items():
                 if eye_name == target_eye_name:
-                    # check if s button is pressed
                     eye_dict["pyro_proxy"].get_calibration_frame()
-                    # The event listener will be running in this block
+
+                    # check timer and autocapture status
+                    if (datetime.now() - timer).total_seconds() > auto_freq and auto_on:
+                        # saving frame as image in every auto_freq seconds
+                        cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
+                        ret, frame = cap.read()
+                        cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
+                        logger.info(f"Auto-saved image {eye_name}_{it}.png")
+                        # reset timer
+                        timer = datetime.now()
+
+                    # The event listener will be running in this block, check if buttons are pressed
                     with keyboard.Events() as events:
                         # Block at most one second
                         event = events.get(0.1)
@@ -419,6 +444,17 @@ class CoBeMaster(object):
                             ret, frame = cap.read()
                             cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
                             logger.info(f"Saved image {eye_name}_{it}.png")
+                        elif event.key == keyboard.Key.up:
+                            if auto_on and (datetime.now() - switch_time).total_seconds() > 1:
+                                auto_on = False
+                                logger.info("Autocapture OFF")
+                                timer = datetime.now()
+                                switch_time = datetime.now()
+                            elif not auto_on and (datetime.now() - switch_time).total_seconds() > 1:
+                                auto_on = True
+                                logger.info("Autocapture ON")
+                                timer = datetime.now()
+                                switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
     def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000):
@@ -471,7 +507,7 @@ class CoBeMaster(object):
                             start_time = datetime.now()
                             logger.info("Asking for inference results...")
                             # eye_dict["pyro_proxy"].get_calibration_frame()
-                            detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
+                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416)
                             logger.info("Received inference results!")
                             logger.info(detections)
 
