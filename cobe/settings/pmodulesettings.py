@@ -48,9 +48,9 @@ predator_filename = "out_pred.json"
 
 # default values
 sim_dt = 0.02
-batch_size = 50
-min_cluster_size = 90
-num_prey = 100
+batch_size = 10  #50
+center_pull_radius = 20  #90
+num_prey = 50  # 100
 repulsion_range = 1
 repulsion_steepness = -4
 repulsion_strength = 2
@@ -62,5 +62,5 @@ flee_steepness = 1
 flee_range = 10
 noise_strength = 0.2
 num_predators = 1
-center_pull_radius = 20
+
 
