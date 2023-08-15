@@ -325,6 +325,8 @@ class CoBeEye(object):
         # removing image path from predictions as it will hold the whole array
         for pred in preds:
             del pred["image_path"]
+            # passing capture timestamp as string
+            pred["capture_ts"] = datetime.datetime.strftime(t_cap, "%Y-%m-%d %H:%M:%S.%f")
 
         logger.debug(f"Number of predictions: {len(preds)}")
 
