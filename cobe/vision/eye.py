@@ -334,6 +334,8 @@ class CoBeEye(object):
             del pred["image_path"]
             # passing capture timestamp as string
             pred["capture_ts"] = datetime.datetime.strftime(t_cap, "%Y-%m-%d %H:%M:%S.%f")
+            if req_ts is not None:
+                pred["request_ts"] = datetime.datetime.strftime(req_ts, "%Y-%m-%d %H:%M:%S.%f")
 
         logger.debug(f"Number of predictions: {len(preds)}")
 
