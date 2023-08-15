@@ -303,13 +303,13 @@ class CoBeMaster(object):
         logger.debug("No interpolated value found for ycam!")
         xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
         yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
-        logger.info(f"X  - min extrap: {np.min(eye_dict['cmap_xmap_extrap'])}, max: {np.max(eye_dict['cmap_xmap_extrap'])}")
-        logger.info(f"Y  - min extrap: {np.min(eye_dict['cmap_ymap_extrap'])}, max: {np.max(eye_dict['cmap_ymap_extrap'])}")
-        logger.info(f"X  - min interp: {np.nanmin(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
-        logger.info(f"Y  - min interp: {np.nanmin(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
-        logger.warning(f"xcam: {xcam}, x_index extrapol: {x_index}")
-        logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
-        logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
+        # logger.info(f"X  - min extrap: {np.min(eye_dict['cmap_xmap_extrap'])}, max: {np.max(eye_dict['cmap_xmap_extrap'])}")
+        # logger.info(f"Y  - min extrap: {np.min(eye_dict['cmap_ymap_extrap'])}, max: {np.max(eye_dict['cmap_ymap_extrap'])}")
+        # logger.info(f"X  - min interp: {np.nanmin(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        # logger.info(f"Y  - min interp: {np.nanmin(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        # logger.warning(f"xcam: {xcam}, x_index extrapol: {x_index}")
+        # logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
+        # logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
         # xreal, yreal = 0, 0
 
 
