@@ -282,17 +282,17 @@ class CoBeMaster(object):
         # # todo: implement remapping with extrapolated values if interpolated values are not valid
         # # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
         # if xreal is None or yreal is None:
-        x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
-        # find index of closest y value in eyes calibration map to provided ycam
-        logger.debug("No interpolated value found for xcam!")
-        y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
-        # find index of closest y value in eyes calibration map to provided ycam
-        logger.debug("No interpolated value found for ycam!")
-        xreal = eye_dict["cmap_xmap_interp"][y_index, x_index]
-        yreal = eye_dict["cmap_ymap_interp"][y_index, x_index]
-        logger.warning(f"xcam: {xcam}, x_index interpol: {x_index}")
-        logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
-        logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
+        # x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # logger.debug("No interpolated value found for xcam!")
+        # y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # logger.debug("No interpolated value found for ycam!")
+        # xreal = eye_dict["cmap_xmap_interp"][y_index, x_index]
+        # yreal = eye_dict["cmap_ymap_interp"][y_index, x_index]
+        # logger.warning(f"xcam: {xcam}, x_index interpol: {x_index}")
+        # logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
+        # logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
 
 
         x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
