@@ -304,12 +304,19 @@ class CoBeEye(object):
         raise KeyboardInterrupt
 
     @expose
-    def inference(self, confidence=40, img_width=416, img_height=416):
+    def inference(self, confidence=40, img_width=416, img_height=416, req_ts=None):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
         logger.info("Clearing capture buffer")
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
         logger.info("Capturing frame")
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
+
+        if req_ts is not None:
+            req_ts = datetime.datetime.strptime(req_ts, "%Y-%m-%d %H:%M:%S.%f")
+            req_cap_dt = (t_cap - req_ts).total_seconds()
+            logger.info(f"Request timestamp: {req_ts}, capture timestamp: {t_cap}, difference: {req_cap_dt}s")
+        else:
+            req_cap_dt = 0
 
         try:
             logger.info("Sending frame to inference server")
