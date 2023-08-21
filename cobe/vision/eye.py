@@ -268,6 +268,7 @@ class CoBeEye(object):
         logger.debug("Taking single frame.")
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
+        logger.info(f"Frame taken at {ret_val} with shape {imgo.shape}.")
 
         # if self.map1 is not None:
         #     # undistorting image according to fisheye calibration map
@@ -275,7 +276,11 @@ class CoBeEye(object):
         #                      borderMode=cv2.BORDER_CONSTANT)
 
         # resizing image to requested w and h
-        img = cv2.resize(imgo, (img_width, img_height))
+        try:
+            img = cv2.resize(imgo, (img_width, img_height))
+        except cv2.error as e:
+            logger.error(f"Error while capturing calibration frame: {e}")
+            return None
         # returning image and timestamp
         return img, t_cap
 
@@ -288,11 +293,7 @@ class CoBeEye(object):
         if height is None:
             height = vision.display_height
         # taking single image with max possible resolution given the GStreamer pipeline
-        try:
-            img, t_cap = self.get_frame(img_width=width, img_height=height)
-        except cv2.error as e:
-            logger.error(f"Error while capturing calibration frame: {e}")
-            return None
+        img, t_cap = self.get_frame(img_width=width, img_height=height)
         # adding high resolution image to calibration frame to publish on local network
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
