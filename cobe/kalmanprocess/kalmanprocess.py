@@ -15,6 +15,7 @@ logger = logs.setup_logger("cobe-kalmanproc")
 
 from datetime import datetime
 from queue import Empty
+from cobe.settings import kalmanprocess as klmp
 
 
 class KalmanFilter(object):
@@ -96,6 +97,11 @@ class KalmanFilter(object):
         self.P = (I - (K * self.H)) * self.P   #Eq.(13)
         return self.x[0:2]
 
+def nearest_ind(items, pivot):
+    logger.info("Finding nearest index to %s in %s", pivot, items)
+    time_diff = np.abs([date - pivot for date in items])
+    return time_diff.argmin(0), items[time_diff.argmin(0)]
+
 def kalman_process_OD(od_position_queue, output_queue):
     """Main Kalman-filtering process running in separate thread, getting object detection values from the passed queue.
     The queue is filled by the object detection process, which is running in a separate thread. The elements pushed to the queue
@@ -108,9 +114,9 @@ def kalman_process_OD(od_position_queue, output_queue):
 
 
     # Parameters
-    process_freq = 30  # frequency of process in Hz
-    process_noise_var = 20  # variance of process noise
-    measurement_noise_var = 0.025  # variance of measurement noise (in simulation space 20 x 20)
+    process_freq = klmp.process_freq  # frequency of process in Hz
+    process_noise_var = klmp.process_noise_var  # variance of process noise
+    measurement_noise_var = klmp.process_noise_var  # variance of measurement noise (in simulation space 20 x 20)
 
     dt = 1 / process_freq  # time between process runs
     # initialize Kalman filter
@@ -118,37 +124,8 @@ def kalman_process_OD(od_position_queue, output_queue):
     u_y = 0
     tracker = KalmanFilter(dt, u_x, u_y, process_noise_var, measurement_noise_var, measurement_noise_var) #KalmanFilter(dim_x=4, dim_z=2)
 
-
-    # # state variables are [x, vx, y, vy]
-    # # initialize state transition function
-    # tracker.F = np.array([[1, dt, 0, 0],
-    #                       [0, 1, 0, 0],
-    #                       [0, 0, 1, dt],
-    #                       [0, 0, 0, 1]])
-    #
-    # # assuming independent x and y noise for process noise matrix
-    # q = Q_discrete_white_noise(dim=2, dt=dt, var=process_noise_var)
-    # tracker.Q = block_diag(q, q)
-    #
-    # # initialize measurement function (only x and y coordinates are measured)
-    # tracker.H = np.array([[1, 0, 0, 0],
-    #                       [0, 0, 1, 0]])
-    #
-    # # initialize measurement noise matrix in 2 D
-    # tracker.R = np.array([[measurement_noise_var, 0],
-    #                       [0, measurement_noise_var]])
-
-    # # initial conditions
-    # tracker.x = np.array([[0, 0, 0, 0]]).T
-    # # uncertainty of initial conditions
-    # tracker.P = np.eye(4) * 500.
-    #
-    # # initializing timer
-    # x = 0
-    # y = 0
-    # vx = 0
-    # vy = 0
     t_last_predict = t_last_groundtruth = datetime.now()
+    filter_parameters = {}
 
     while True:
         # try to get element from queue
@@ -174,32 +151,45 @@ def kalman_process_OD(od_position_queue, output_queue):
                 x = x[0, 0]
                 y = y[0, 0]
                 # (x1, y1) = tracker.update(np.array([[x], [y]]))
+                # Saving filter parameters in the blind period until we get a new measurement from the past
+                filter_parameters[datetime.now()] = [tracker.x, tracker.u, tracker.A, tracker.B, tracker.H, tracker.Q, tracker.R, tracker.P]
             else:
                 logger.debug(f"Kalman process: found ground truth value since last prediction, use ground truth value to further predict")
                 # # since there is a delay we predict as many times as we have to given dt and tcap of ground truth values
                 # logger.info(f"tcap: {tcap}, now: {datetime.now()}")
-                # time_diff = (tcap - datetime.now()).total_seconds()
-                # num_predictions = abs(int(time_diff * process_freq))
-                # logger.info(f"Time difference between tcap and now: {time_diff}, number of predictions: {num_predictions}")
-                # for i in range(num_predictions):
-                #     tracker.predict()
-                #     logger.info(f"predict: {tracker.x}")
-                #     (x, vx, y, vy) = tracker.x
-                #     if i==0:
-                #         tracker.update(np.array([xod, xod]))
-                #     else:
-                #         tracker.update(np.array([x, y]))
+                # Setting back filter to the closest state to the measurement time
+                filter_params_ind, filter_params_key = nearest_ind(list(filter_parameters.keys()), tcap)
+                filter_params = filter_parameters[filter_params_key]
+                tracker.x = filter_params[0]
+                tracker.u = filter_params[1]
+                tracker.A = filter_params[2]
+                tracker.B = filter_params[3]
+                tracker.H = filter_params[4]
+                tracker.Q = filter_params[5]
+                tracker.R = filter_params[6]
+                tracker.P = filter_params[7]
                 (x, y) = tracker.predict()
                 x = x[0, 0]
                 y = y[0, 0]
                 (x1, y1) = tracker.update(np.array([[xod], [yod]]))
-                    # check if output queue is not None, if so push predicted values to output queue
+                # The filter is now in the past and we predict until the current time
+                time_diff = (tcap - datetime.now()).total_seconds()
+                num_predictions = abs(int(time_diff * process_freq))
+                logger.info(f"Time difference between tcap and now: {time_diff}, number of predictions: {num_predictions}")
+                for i in range(num_predictions):
+                    (x, y) = tracker.predict()
+                    x = x[0, 0]
+                    y = y[0, 0]
+                    logger.info(f"Kalman process: predicted values: x: {x}, y: {y}")
+                    # (x1, y1) = tracker.update(np.array([[x], [y]]))
 
-                # logger.debug(f"Tracker update with xgt: {xod}, ygt: {yod}, predicted {num_predictions} times")
-                # get predicted values
-                # (x, vx, y, vy) = tracker.x
+                # Cleaning filter parameters from the past
+                filter_parameters = {}
+                filter_parameters[datetime.now()] = [tracker.x, tracker.u, tracker.A, tracker.B, tracker.H, tracker.Q,
+                                                     tracker.R, tracker.P]
 
             t_last_predict = datetime.now()
+
             logger.debug(f"Kalman process: predicted values: x: {x}, y: {y}")
 
             # check if output queue is not None, if so push predicted values to output queue
