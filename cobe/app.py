@@ -6,43 +6,66 @@ from getpass import getpass
 from cobe.settings import network
 import logging
 from cobe.settings import logs
+from multiprocessing import Process, Queue
+from cobe.kalmanprocess.kalmanprocess import kalman_process_OD
+import numpy as np
+from datetime import datetime
 
 # Setting up file logger
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger("cobe.app")
+
 
 def test_stream():
     """Test streaming of all eyes"""
     master = CoBeMaster()
     master.start_test_stream()
 
+
 def collect_pngs():
     """Collects pngs from all eyes"""
     master = CoBeMaster()
     master.collect_images_from_stream()
 
+
 def main():
     master = CoBeMaster()
     master.start()
+
+
+def main_kalman():
+    od_to_kalman_queue = Queue()
+    kalman_to_json_queue = Queue()
+    kalman_process = Process(target=kalman_process_OD, args=(od_to_kalman_queue, None, ))
+    kalman_process.start()
+    master = CoBeMaster()
+    master.start(kalman_queue=od_to_kalman_queue, t_max=300)
+    kalman_process.terminate()
+    kalman_process.join()
+
 
 def cleanup_inf_servers():
     """Cleans up the inference servers on all eyes"""
     master = CoBeMaster()
     master.cleanup_inference_servers()
 
+
 def shutdown_eyes():
     """Shuts down all eyes"""
     master = CoBeMaster()
     master.shutdown_eyes()
+
 
 def shutdown_rendering():
     """Shuts down all rendering"""
     master = CoBeMaster()
     master.shutdown_rendering_stack()
 
+
 def startup_rendering():
     master = CoBeMaster()
     master.startup_rendering_stack()
+
 
 def start_eyeserver():
     """Starts the pyro eyeserver on the eyes defined by settins.network via fabric"""
@@ -54,14 +77,14 @@ def start_eyeserver():
     for c in eyes:
         c.connect_kwargs.password = PSWD
         c.run(f'cd {network.nano_cobe_installdir} && '
-               'git stash && '
-               'git pull && '
-               'git stash pop && '
-               'ls && '
-               'dtach -n /tmp/tmpdtach '
-               f'python3 cobe/vision/eye.py --host={c.host} --port={network.unified_eyeserver_port}',
-               hide=True,
-               pty=False)
+              'git stash && '
+              'git pull && '
+              'git stash pop && '
+              'ls && '
+              'dtach -n /tmp/tmpdtach '
+              f'python3 cobe/vision/eye.py --host={c.host} --port={network.unified_eyeserver_port}',
+              hide=True,
+              pty=False)
         logger.info(f'Started eyeserver on host {c.host}')
         time.sleep(5)
 
@@ -85,7 +108,7 @@ def start_eyeserver():
             logger.info("Shutting down eyes...")
             for c in eyes:
                 c.connect_kwargs.password = PSWD
-                c.sudo(f'shutdown -h now',  warn=True, shell=False)
+                c.sudo(f'shutdown -h now', warn=True, shell=False)
                 logger.info(f"Shutting down host {c.host}")
             logger.info("Shutdown complete.")
 
