@@ -36,6 +36,7 @@ setup(
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
+                            "cobe-eye-kalman-start=cobe.vision.eye:main_kalman",
                             "cobe-master-start-eyeserver=cobe.app:start_eyeserver",
                             "cobe-master-start=cobe.app:main",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
