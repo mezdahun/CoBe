@@ -457,13 +457,14 @@ class CoBeMaster(object):
                                 switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
         :param target_eye_name: name of the eye for which remapping should be visualized (only if show_simulation_space
                                 is True)
-        :param t_max: maximum number of iterations after which automatically quitting, otherwise press ESC"""
+        :param t_max: maximum number of iterations after which automatically quitting, otherwise press ESC
+        :param kalman_queue: queue for sending data to the Kalman filter"""
 
         # Preparing eyes for running
         logger.info("Starting rendering stack...")
@@ -507,7 +508,8 @@ class CoBeMaster(object):
                             start_time = datetime.now()
                             logger.info("Asking for inference results...")
                             # eye_dict["pyro_proxy"].get_calibration_frame()
-                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416)
+                            req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
+                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416, req_ts=req_ts)
                             logger.info("Received inference results!")
                             logger.info(detections)
 
@@ -518,6 +520,7 @@ class CoBeMaster(object):
                                 # generating predator positions to be sent to the simulation
                                 predator_positions = []
                                 for detection in detections:
+                                    logger.info(f"Frame in processing was requested at {detection.get('request_ts')}")
                                     xcam, ycam = detection["x"], detection["y"]
 
                                     # scaling up the coordinates to the original calibration image size
@@ -575,9 +578,11 @@ class CoBeMaster(object):
 
                                 # generating predator position
                                 if len(predator_positions) > 0:
-                                    generate_pred_json(predator_positions)
-                                # else:
-                                #     generate_pred_json([[0, 0]])
+                                    if kalman_queue is not None:
+                                        kalman_queue.put((req_ts, datetime.now(), predator_positions))
+                                    else:
+                                        generate_pred_json(predator_positions)
+
                                 # timing framerate of calibration frames
                                 end_time = datetime.now()
                                 logger.error(f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
