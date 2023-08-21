@@ -97,7 +97,7 @@ def gstreamer_pipeline(
             "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
             "video/x-raw, width=%d, height=%d, format=I420 ! "  # resize image
             "videoconvert ! "
-            "video/x-raw, format=I420 ! x264enc ! h264parse ! qtmux ! appsink drop=true sync=false"
+            "video/x-raw, format=I420 ! x264enc ! h264parse ! qtmux ! filesink location=test.mp4 -e"
             % (
                 capture_width,
                 capture_height,
