@@ -95,7 +95,7 @@ def gstreamer_pipeline(
             "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
             "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
             "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
-            "video/x-raw, width=(int)%d, height=(int)%d, format=I420 ! "  # resize image
+            "video/x-raw, width=%d, height=%d, format=I420 ! "  # resize image
             "videoconvert ! "
             "video/x-raw, format=I420 ! x264enc ! h264parse ! qtmux ! appsink drop=true sync=false"
             % (
