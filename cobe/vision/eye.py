@@ -288,7 +288,11 @@ class CoBeEye(object):
         if height is None:
             height = vision.display_height
         # taking single image with max possible resolution given the GStreamer pipeline
-        img, t_cap = self.get_frame(img_width=width, img_height=height)
+        try:
+            img, t_cap = self.get_frame(img_width=width, img_height=height)
+        except cv2.error as e:
+            logger.error(f"Error while capturing calibration frame: {e}")
+            return None
         # adding high resolution image to calibration frame to publish on local network
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
