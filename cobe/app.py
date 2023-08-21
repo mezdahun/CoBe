@@ -34,12 +34,16 @@ def main():
 
 
 def main_kalman():
+    # Creating queue to push real detection coordinates
     od_to_kalman_queue = Queue()
-    kalman_to_json_queue = Queue()
+    # Creating process to run kalman filter in different thread
     kalman_process = Process(target=kalman_process_OD, args=(od_to_kalman_queue, None, ))
+    # Starting kalman process
     kalman_process.start()
+    # Starting cobe master and passing shared queue
     master = CoBeMaster()
-    master.start(kalman_queue=od_to_kalman_queue, t_max=300)
+    master.start(kalman_queue=od_to_kalman_queue)
+    # Terminating kalman process when master finished
     kalman_process.terminate()
     kalman_process.join()
 
