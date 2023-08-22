@@ -228,7 +228,7 @@ class CoBeEye(object):
 
         if self.inference_server_id is None:
             # Command on Orin Nano
-            command = "docker run --name %s --privileged --net=host --runtime=nvidia --mount source=roboflow,target=/tmp/cache -e NUM_WORKERS=1 roboflow/roboflow-inference-server-trt-jetson-5.1.1:latest"
+            command = "docker run --name %s --privileged --net=host --runtime=nvidia --mount source=roboflow,target=/tmp/cache -e NUM_WORKERS=1 roboflow/roboflow-inference-server-trt-jetson-5.1.1:latest" % odmodel.inf_server_cont_name
             # Command on normal Nano
             # command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
