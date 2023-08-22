@@ -288,7 +288,6 @@ class CoBeEye(object):
         logger.debug("Taking single frame.")
         # getting single frame in high resolution
         ret_val, imgo = self.cap.read()
-        logger.info(f"Frame taken at {ret_val} with shape {imgo.shape}.")
 
         # if self.map1 is not None:
         #     # undistorting image according to fisheye calibration map
