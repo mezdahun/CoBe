@@ -120,5 +120,7 @@ def start_eyeserver():
 def calibrate():
     """Test Calibration of all eyes interactively"""
     master = CoBeMaster()
-    master.calibrate(with_visualization=True, interactive=True, detach=True)
+    ##  To calibrate with computer screen as calibration target uncomment the following line:
     # master.calibrator.generate_calibration_image(detach=True)
+    ## Start calibration
+    master.calibrate(with_visualization=True, interactive=True, detach=True)
