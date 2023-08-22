@@ -528,7 +528,8 @@ class CoBeMaster(object):
                             req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
                             detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416, req_ts=req_ts)
                             logger.info("Received inference results!")
-                            logger.info(detections)
+                            det_time = datetime.now() - start_time
+                            logger.info(f"Detection took {det_time.total_seconds()} seconds")
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
