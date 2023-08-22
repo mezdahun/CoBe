@@ -147,11 +147,18 @@ class CoBeMaster(object):
         eye_i = 0
         for eye_name, eye_dict in self.eyes.items():
             is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
+            is_pattern_projected = False
             if not is_map_loaded:
                 logger.info(f"Calculating calibration maps for {eye_name}.")
                 logger.debug("Sending calibration image to projectors...")
-                self.project_calibration_image()
-                sleep(3)
+                try:
+                    self.project_calibration_image()
+                    sleep(3)
+                    is_pattern_projected = True
+                except Exception as e:
+                    logger.error(f"Exception while projecting calibration image: {e}")
+                    logger.error("Trying to continue without projecting calibration image.")
+
                 while retry[eye_i]:
                     # get a single calibration image from every eye object
                     logger.debug("Fetching calibration images from eyes...")
@@ -174,15 +181,16 @@ class CoBeMaster(object):
                             retry[eye_i] = False
                     else:
                         retry[eye_i] = False
-            logger.debug("Removing calibration image from projectors...")
-            self.remove_calibration_image()
-            sleep(3)
+            if is_pattern_projected:
+                logger.debug("Removing calibration image from projectors...")
+                self.remove_calibration_image()
+                sleep(3)
         self.save_calibration_maps()
         if with_visualization:
             # closing all matplotlib windows after calibration
             plt.close("all")
 
-        logger.info("Calibration maps calculated.")
+        logger.info("Calibration maps calculated and saved.")
 
     def save_calibration_maps(self):
         """Saves the calibration maps and eye settings for each eye's predefined json file"""
