@@ -68,27 +68,6 @@ def gstreamer_pipeline(
                     framerate,
                     flip_method
                 ))
-    # return (
-    #         "nvarguscamerasrc ! "
-    #         "video/x-raw(memory:NVMM), "
-    #         "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
-    #         "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
-    #         "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
-    #         "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "  # resize image
-    #         "videoconvert ! "
-    #         "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
-    #         % (
-    #             capture_width,
-    #             capture_height,
-    #             framerate,
-    #             flip_method,
-    #             start_x,
-    #             end_x,
-    #             start_y,
-    #             end_y,
-    #             display_width,
-    #             display_height
-    #         )
     return (
             "nvarguscamerasrc sensor-id=0 ! "
             "video/x-raw(memory:NVMM), "
@@ -123,6 +102,9 @@ class CoBeEye(object):
         # other setting files distributed before
         # ID of the Nano module
         self.id = os.getenv("EYE_ID", 0)
+        # Version of the nano
+        self.version = vision.eye_version
+        logger.info(f"Initializing CoBeEye with ID {self.id} and board version {self.version}")
         # IP address of the Nano module in the local network
         self.local_ip = get_local_ip_address()
 
@@ -228,9 +210,13 @@ class CoBeEye(object):
 
         if self.inference_server_id is None:
             # Command on Orin Nano
-            command = "docker run --name %s --privileged --net=host --runtime=nvidia --mount source=roboflow,target=/tmp/cache -e NUM_WORKERS=1 roboflow/roboflow-inference-server-trt-jetson-5.1.1:latest" % odmodel.inf_server_cont_name
+            if self.version == "ORIN":
+                command = ("docker run --name %s --privileged --net=host --runtime=nvidia --mount source=roboflow,"
+                           "target=/tmp/cache -e NUM_WORKERS=1 "
+                           "roboflow/roboflow-inference-server-trt-jetson-5.1.1:latest") % odmodel.inf_server_cont_name
             # Command on normal Nano
-            # command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
+            elif self.version == "JETSON":
+                command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
             logger.info("Inference server container created and started with pid %s" % pid)
