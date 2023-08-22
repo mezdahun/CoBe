@@ -467,12 +467,21 @@ class CoBeMaster(object):
         :param kalman_queue: queue for sending data to the Kalman filter"""
 
         # Preparing eyes for running
-        logger.info("Starting rendering stack...")
-        self.startup_rendering_stack()
-        logger.info("Starting OD detection on eyes...")
-        self.initialize_object_detectors()
+        try:
+            logger.info("Starting rendering stack...")
+            self.startup_rendering_stack()
+        except Exception as e:
+            logger.error(f"Could not start rendering stack: {e}")
+            proceed = input("Do you want to proceed without rendering stack? (y/n)")
+            if proceed == "y":
+                pass
+            else:
+                logger.info("Quitting...")
+                return
         logger.info("Calibrating eyes...")
         self.calibrate(with_visualization=True, interactive=True, detach=True)
+        logger.info("Starting OD detection on eyes...")
+        self.initialize_object_detectors()
 
         # setting up visualization if requested
         if show_simulation_space:
