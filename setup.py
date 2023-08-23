@@ -6,7 +6,7 @@ setup(
     name='CoBe - ScienceOfIntelligence',
     description='Scientific demonstrator to showcase collective behavioral model and to provide a merged environment,'
                 'where robotics, human behavior and simulations meet.',
-    version='0.1.0',
+    version='1.0',
     url='https://github.com/mezdahun/CoBe',
     maintainer='David Mezey, David James and Palina Bartashevich @ SCIoI',
     packages=find_packages(exclude=['tests']),
@@ -24,8 +24,13 @@ setup(
             'pytest',
             'pytest-cov'
         ],
+        'cobe-eye-orin': [
+            'roboflow'  # todo: add broken dependencies here
+        ],
+        'cobe-eye-jetson': [
+            'roboflow'
+        ],
         'cobe-master': [
-            'pyzbar',  # for QR code reading, on non-windows system additional steps needed
             'opencv-python==4.7.0.72',
             'matplotlib',
             'scipy',
