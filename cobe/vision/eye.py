@@ -10,6 +10,8 @@ They
 """
 import argparse
 import datetime
+import time
+
 import cv2
 import os
 import subprocess
@@ -67,12 +69,11 @@ def gstreamer_pipeline(
                     flip_method
                 ))
     return (
-            "nvarguscamerasrc ! "
+            "nvarguscamerasrc sensor-id=0 ! "
             "video/x-raw(memory:NVMM), "
-            "width=(int)%d, height=(int)%d, "  # sensor width and height according to sensor mode of the camera
-            "format=(string)NV12, framerate=(fraction)%d/1 ! "  # framerate according to sensor mode
-            "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "  # flip and crop image
-            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "  # resize image
+            "width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! " 
+            "nvvidconv flip-method=%d left=%d right=%d top=%d bottom=%d ! "
+            "video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! "
             "videoconvert ! "
             "video/x-raw, format=(string)BGR ! appsink drop=true sync=false"
             % (
@@ -101,6 +102,9 @@ class CoBeEye(object):
         # other setting files distributed before
         # ID of the Nano module
         self.id = os.getenv("EYE_ID", 0)
+        # Version of the nano
+        self.version = vision.eye_version
+        logger.info(f"Initializing CoBeEye with ID {self.id} and board version {self.version}")
         # IP address of the Nano module in the local network
         self.local_ip = get_local_ip_address()
 
@@ -111,6 +115,7 @@ class CoBeEye(object):
 
         # Starting cv2 capture stream from camera
         self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         # Opening fisheye unwarping calibration maps
         self.fisheye_calibration_map = None
@@ -204,7 +209,14 @@ class CoBeEye(object):
             self.inference_server_id = found_cid
 
         if self.inference_server_id is None:
-            command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
+            # Command on Orin Nano
+            if self.version == "ORIN":
+                command = ("docker run --name %s --privileged --net=host --runtime=nvidia --mount source=roboflow,"
+                           "target=/tmp/cache -e NUM_WORKERS=1 "
+                           "roboflow/roboflow-inference-server-trt-jetson-5.1.1:latest") % odmodel.inf_server_cont_name
+            # Command on normal Nano
+            elif self.version == "JETSON":
+                command = "docker run --name %s --net=host --gpus all -d roboflow/inference-server:jetson" % odmodel.inf_server_cont_name
             # calling command with os.system and saving the resulting  STD output in string variable
             pid = subprocess.getoutput('echo %s|sudo -S %s' % (self.pswd, command))
             logger.info("Inference server container created and started with pid %s" % pid)
@@ -269,7 +281,11 @@ class CoBeEye(object):
         #                      borderMode=cv2.BORDER_CONSTANT)
 
         # resizing image to requested w and h
-        img = cv2.resize(imgo, (img_width, img_height))
+        try:
+            img = cv2.resize(imgo, (img_width, img_height))
+        except cv2.error as e:
+            logger.error(f"Error while capturing calibration frame: {e}")
+            return None
         # returning image and timestamp
         return img, t_cap
 
@@ -297,24 +313,42 @@ class CoBeEye(object):
         """Shutting down the eye by setting the Daemon's loop condition to False"""
         self._is_running = False
         logger.info("Eye shutdown initiated.")
+        time.sleep(3)
         raise KeyboardInterrupt
 
     @expose
-    def inference(self, confidence=40, img_width=416, img_height=416):
+    def inference(self, confidence=40, img_width=416, img_height=416, req_ts=None):
         """Carrying out inference on the edge on single captured fram and returning the bounding box coordinates"""
+        logger.info("Clearing capture buffer")
+        img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
+        logger.info("Capturing frame")
         img, t_cap = self.get_frame(img_width=img_width, img_height=img_height)
 
+        if req_ts is not None:
+            req_ts = datetime.datetime.strptime(req_ts, "%Y-%m-%d %H:%M:%S.%f")
+            req_cap_dt = (t_cap - req_ts).total_seconds()
+            logger.info(f"Request timestamp: {req_ts}, capture timestamp: {t_cap}, difference: {req_cap_dt}s")
+        else:
+            req_cap_dt = 0
+
         try:
+            logger.info("Sending frame to inference server")
             detections = self.detector_model.predict(img, confidence=confidence)
+            logger.info("Received predictions from inference server")
         except KeyError:
             logger.error("KeyError in roboflow inference code, can mean that your authentication"
                          "is invalid to the inference server or you are over quota.")
 
         preds = detections.json().get("predictions")
+        # logger.info(preds["image_path"].shape)
 
         # removing image path from predictions as it will hold the whole array
         for pred in preds:
             del pred["image_path"]
+            # passing capture timestamp as string
+            pred["capture_ts"] = datetime.datetime.strftime(t_cap, "%Y-%m-%d %H:%M:%S.%f")
+            if req_ts is not None:
+                pred["request_ts"] = datetime.datetime.strftime(req_ts, "%Y-%m-%d %H:%M:%S.%f")
 
         logger.debug(f"Number of predictions: {len(preds)}")
 
@@ -322,7 +356,9 @@ class CoBeEye(object):
         if self.publish_mjpeg_stream:
             if self.streaming_server is None:
                 self.setup_streaming_server()
+            logger.info("Annotating image with bounding boxes and labels")
             self.streaming_server.frame = annotate_detections(img, preds)
+            logger.info("Image annotated and published on mjpeg streaming server")
 
         return preds
 

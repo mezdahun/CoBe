@@ -6,6 +6,7 @@ import os
 # on framerate frame_rate. The stream is then cropped to crop_width and crop_height starting from start_x and
 # start_y. The cropped image is then resized to display_width and display_height. The resized image is then
 # flipped according to flip_method.
+eye_version = "ORIN"  # "ORIN" or "JETSON"
 
 flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 3264)
@@ -20,8 +21,15 @@ display_height = os.getenv("DISPLAY_HEIGHT", 416)  # fisheye calibration maps sh
 
 end_x = min(start_x + crop_width, capture_width)  # end cropping at this x coordinate
 end_y = min(start_y + crop_height, capture_height)  # end cropping at this y coordinate
-frame_rate = os.getenv("FRAME_RATE", 5)
+frame_rate = os.getenv("FRAME_RATE", 20)
 
 ### Published MJPEG stream settings ###
 publish_mjpeg_stream = os.getenv("PUBLISH_MJPEG_STREAM", True)
 mjpeg_stream_port = os.getenv("MJPEG_STREAM_PORT", 8000)
+
+### Mapping parameters
+# resolution of interpolated map
+interp_map_res = os.getenv("INTERP_MAP_RES", 500)
+# number of points to use for extrapolation on sides of map
+extrap_skirt = 50
+

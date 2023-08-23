@@ -41,18 +41,24 @@ def filter_detections(detections):
     """Choosing correct detectionposition according to body parts"""
     # deciding which bunding box to use
     logger.debug("Filtering detections.")
+    stick_dets = [det for det in detections if det["class"] == "stick"]
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
-    if len(feet_dets) > 0:
-        logger.debug("Using feet detection.")
-        detections = feet_dets
-    elif len(trunk_dets) > 0:
-        logger.debug("Using trunk detection.")
-        detections = trunk_dets
-    elif len(head_dets) > 0:
-        logger.debug("Using head detection.")
-        detections = head_dets
+    if len(stick_dets) > 0:
+        logger.debug("Using stick detection.")
+        detections = stick_dets
+    else:
+        detections = []
+    # elif len(feet_dets) > 0:
+    #     logger.debug("Using feet detection.")
+    #     detections = feet_dets
+    # elif len(trunk_dets) > 0:
+    #     logger.debug("Using trunk detection.")
+    #     detections = trunk_dets
+    # elif len(head_dets) > 0:
+    #     logger.debug("Using head detection.")
+    #     detections = head_dets
 
     if len(detections) > 1:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
@@ -141,8 +147,17 @@ class CoBeMaster(object):
         eye_i = 0
         for eye_name, eye_dict in self.eyes.items():
             is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
+            is_pattern_projected = False
             if not is_map_loaded:
                 logger.info(f"Calculating calibration maps for {eye_name}.")
+                logger.debug("Sending calibration image to projectors...")
+                try:
+                    self.project_calibration_image()
+                    sleep(3)
+                    is_pattern_projected = True
+                except Exception as e:
+                    logger.error(f"Exception while projecting calibration image: {e}")
+                    logger.error("Trying to continue without projecting calibration image.")
 
                 while retry[eye_i]:
                     # get a single calibration image from every eye object
@@ -166,13 +181,16 @@ class CoBeMaster(object):
                             retry[eye_i] = False
                     else:
                         retry[eye_i] = False
-
+            if is_pattern_projected:
+                logger.debug("Removing calibration image from projectors...")
+                self.remove_calibration_image()
+                sleep(3)
         self.save_calibration_maps()
         if with_visualization:
             # closing all matplotlib windows after calibration
             plt.close("all")
 
-        logger.info("Calibration maps calculated.")
+        logger.info("Calibration maps calculated and saved.")
 
     def save_calibration_maps(self):
         """Saves the calibration maps and eye settings for each eye's predefined json file"""
@@ -262,24 +280,46 @@ class CoBeMaster(object):
         """Remaps a detection point from camera space to real space according to the calibration maps."""
         # First trying to get a more accurate interpolated value from the calibration map
         # find index of closest x value in eyes calibration map to provided xcam
-        x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
-        logger.debug(f"xcam: {xcam}, x_index: {x_index}")
+        # x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # logger.debug(f"xcam: {xcam}, x_index: {x_index}")
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # logger.debug(f"ycam: {ycam}, y_index: {y_index}")
+        # # return the real space coordinates for the provided camera space coordinates
+        # xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
+        # # todo: implement remapping with extrapolated values if interpolated values are not valid
+        # # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
+        # if xreal is None or yreal is None:
+        # x_index = np.abs(eye_dict["cmap_x_interp"] - xcam).argmin()
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # logger.debug("No interpolated value found for xcam!")
+        # y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
+        # # find index of closest y value in eyes calibration map to provided ycam
+        # logger.debug("No interpolated value found for ycam!")
+        # xreal = eye_dict["cmap_xmap_interp"][y_index, x_index]
+        # yreal = eye_dict["cmap_ymap_interp"][y_index, x_index]
+        # logger.warning(f"xcam: {xcam}, x_index interpol: {x_index}")
+        # logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
+        # logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
+
+
+        x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
         # find index of closest y value in eyes calibration map to provided ycam
-        y_index = np.abs(eye_dict["cmap_y_interp"] - ycam).argmin()
-        logger.debug(f"ycam: {ycam}, y_index: {y_index}")
-        # return the real space coordinates for the provided camera space coordinates
-        xreal, yreal = eye_dict["cmap_xmap_interp"][y_index, x_index], eye_dict["cmap_ymap_interp"][y_index, x_index]
-        # todo: implement remapping with extrapolated values if interpolated values are not valid
-        # # if the interpolated value is not valid, return the nearest value from the extrapolated calibration map
-        if xreal is None or yreal is None:
-            x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
-            # find index of closest y value in eyes calibration map to provided ycam
-            logger.debug("No interpolated value found for xcam!")
-            y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
-            # find index of closest y value in eyes calibration map to provided ycam
-            logger.debug("No interpolated value found for ycam!")
-            xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
-            yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        logger.debug("No interpolated value found for xcam!")
+        y_index = np.abs(eye_dict["cmap_y_extrap"] - ycam).argmin()
+        # find index of closest y value in eyes calibration map to provided ycam
+        logger.debug("No interpolated value found for ycam!")
+        xreal = eye_dict["cmap_xmap_extrap"][y_index, x_index]
+        yreal = eye_dict["cmap_ymap_extrap"][y_index, x_index]
+        # logger.info(f"X  - min extrap: {np.min(eye_dict['cmap_xmap_extrap'])}, max: {np.max(eye_dict['cmap_xmap_extrap'])}")
+        # logger.info(f"Y  - min extrap: {np.min(eye_dict['cmap_ymap_extrap'])}, max: {np.max(eye_dict['cmap_ymap_extrap'])}")
+        # logger.info(f"X  - min interp: {np.nanmin(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_xmap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        # logger.info(f"Y  - min interp: {np.nanmin(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}, max: {np.nanmax(eye_dict['cmap_ymap_interp'][eye_dict['cmap_xmap_interp'] != None])}")
+        # logger.warning(f"xcam: {xcam}, x_index extrapol: {x_index}")
+        # logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
+        # logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
+        # xreal, yreal = 0, 0
+
 
         # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
@@ -337,12 +377,8 @@ class CoBeMaster(object):
         :param interactive: if True, the calibration process will be interactive and will be retried if quality is not
                             sufficient
         :param detach: if True, the calibration process will be detached from the main process"""
-        logger.debug("Sending calibration image to prjectors...")
-        self.project_calibration_image()
         logger.debug("Starting calibration...")
         self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach)
-        logger.debug("Removing calibration image from projectors...")
-        self.remove_calibration_image()
         sleep(2)
 
     def start_test_stream(self, t=300):
@@ -359,11 +395,19 @@ class CoBeMaster(object):
                 # print FPS with overwriting previous line
                 logger.info(f"FPS~ on eye {eye_name}: ", int(1 / delta_time.total_seconds()))
 
-    def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0"):
+    def collect_images_from_stream(self, t_max=3000, target_eye_name="eye_0", auto_freq=1.5):
         """Collecting and saving images from all eyes when s button is pressed.
         Quitting when q button is pressed.
         :param t_max: maximum number of iterations after which automatically quitting
-        :param target_eye_name: name of the eye for which images should be collected"""
+        :param target_eye_name: name of the eye for which images should be collected
+        :param auto_freq: 1/frequency in seconds at which images should be collected automatically
+        :interact space: press space to save image
+        :interact q: press q to quit
+        interact up: press up arrow to start automatic image collection"""
+        # attributes for autocapture feature
+        auto_on = False
+        timer = datetime.now()
+        switch_time = datetime.now()
         # path of current file
         file_path = os.path.dirname(os.path.realpath(__file__))
         # path of current directory
@@ -375,13 +419,24 @@ class CoBeMaster(object):
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
 
-        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, q to quit.")
+        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, ESC to quit, "
+                    f"SPACE to save image and UP to turn on/off autocapture")
         for it in range(t_max):
             for eye_name, eye_dict in self.eyes.items():
                 if eye_name == target_eye_name:
-                    # check if s button is pressed
                     eye_dict["pyro_proxy"].get_calibration_frame()
-                    # The event listener will be running in this block
+
+                    # check timer and autocapture status
+                    if (datetime.now() - timer).total_seconds() > auto_freq and auto_on:
+                        # saving frame as image in every auto_freq seconds
+                        cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
+                        ret, frame = cap.read()
+                        cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
+                        logger.info(f"Auto-saved image {eye_name}_{it}.png")
+                        # reset timer
+                        timer = datetime.now()
+
+                    # The event listener will be running in this block, check if buttons are pressed
                     with keyboard.Events() as events:
                         # Block at most one second
                         event = events.get(0.1)
@@ -397,23 +452,44 @@ class CoBeMaster(object):
                             ret, frame = cap.read()
                             cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
                             logger.info(f"Saved image {eye_name}_{it}.png")
+                        elif event.key == keyboard.Key.up:
+                            if auto_on and (datetime.now() - switch_time).total_seconds() > 1:
+                                auto_on = False
+                                logger.info("Autocapture OFF")
+                                timer = datetime.now()
+                                switch_time = datetime.now()
+                            elif not auto_on and (datetime.now() - switch_time).total_seconds() > 1:
+                                auto_on = True
+                                logger.info("Autocapture ON")
+                                timer = datetime.now()
+                                switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
         :param target_eye_name: name of the eye for which remapping should be visualized (only if show_simulation_space
                                 is True)
-        :param t_max: maximum number of iterations after which automatically quitting, otherwise press ESC"""
+        :param t_max: maximum number of iterations after which automatically quitting, otherwise press ESC
+        :param kalman_queue: queue for sending data to the Kalman filter"""
 
         # Preparing eyes for running
-        logger.info("Starting rendering stack...")
-        self.startup_rendering_stack()
-        logger.info("Starting OD detection on eyes...")
-        self.initialize_object_detectors()
+        try:
+            logger.info("Starting rendering stack...")
+            self.startup_rendering_stack()
+        except Exception as e:
+            logger.error(f"Could not start rendering stack: {e}")
+            proceed = input("Do you want to proceed without rendering stack? (y/n)")
+            if proceed == "y":
+                pass
+            else:
+                logger.info("Quitting...")
+                return
         logger.info("Calibrating eyes...")
         self.calibrate(with_visualization=True, interactive=True, detach=True)
+        logger.info("Starting OD detection on eyes...")
+        self.initialize_object_detectors()
 
         # setting up visualization if requested
         if show_simulation_space:
@@ -445,7 +521,14 @@ class CoBeMaster(object):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
                         try:
-                            detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416)
+                            # timing framerate of calibration frames
+                            start_time = datetime.now()
+                            logger.info("Asking for inference results...")
+                            # eye_dict["pyro_proxy"].get_calibration_frame()
+                            req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
+                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416, req_ts=req_ts)
+                            logger.info("Received inference results!")
+                            logger.info(detections)
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
@@ -454,6 +537,7 @@ class CoBeMaster(object):
                                 # generating predator positions to be sent to the simulation
                                 predator_positions = []
                                 for detection in detections:
+                                    logger.info(f"Frame in processing was requested at {detection.get('request_ts')}")
                                     xcam, ycam = detection["x"], detection["y"]
 
                                     # scaling up the coordinates to the original calibration image size
@@ -489,24 +573,36 @@ class CoBeMaster(object):
 
                                         # scaling down the coordinates from the original calibration image size to the
                                         # simulation space
+                                        extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
+                                                                    vision.interp_map_res
+                                        theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
+                                        centering_const = theoretical_extrap_space_size / 2
                                         xreal, yreal = xreal * (
-                                                (2 * max_abs_coord) / aruco.proj_calib_image_width) - max_abs_coord, \
+                                                theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
                                                        yreal * (
-                                                (2 * max_abs_coord) / aruco.proj_calib_image_height) - max_abs_coord
+                                                theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
 
                                         # matching directions in simulation space
                                         xreal, yreal = yreal, -xreal
 
-                                        # todo: simplify this by merging the 2 scaling commands
+                                        # todo: simplify this by merging the 2 scaling commandscobe-pm
 
                                         predator_positions.append([xreal, yreal])
                                         logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
+
                                     else:
                                         logger.info(f"No predator detected on eye {eye_name}")
 
                                 # generating predator position
                                 if len(predator_positions) > 0:
-                                    generate_pred_json(predator_positions)
+                                    if kalman_queue is not None:
+                                        kalman_queue.put((req_ts, datetime.now(), predator_positions))
+                                    else:
+                                        generate_pred_json(predator_positions)
+
+                                # timing framerate of calibration frames
+                                end_time = datetime.now()
+                                logger.error(f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
                             else:
                                 raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
@@ -518,6 +614,9 @@ class CoBeMaster(object):
                                 elif event.key == keyboard.Key.esc:
                                     logger.info("Quitting requested by user. Exiting...")
                                     return
+
+                            # logger.info("Sleeping for 3 seconds...")
+                            # time.sleep(5)
 
                         except Exception as e:
                             if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
@@ -664,36 +763,57 @@ class CoBeCalib(object):
             # get y coordinates of detected aruco code centers
             y = centers[:, 1]
 
+            num_data_points = vision.interp_map_res  # resolution of the interpolated map will be shape N x N
+            skirt = 0.1  # number of pixels to add to the border of the map to avoid edge effects
+
+            #todo: cleanup
             # Create grid values first.
-            xi = np.linspace(min(x) - 0.1, max(x) + 0.1, int(max(x) - min(x)))
-            yi = np.linspace(min(y) - 0.1, max(y) + 0.1, int(max(y) - min(y)))
+            xi = np.linspace(min(x) - 0.1, max(x) + 0.1, num=num_data_points)
+            dx = (max(x) + 0.1 - (min(x) - 0.1)) / (num_data_points - 1)
+            yi = np.linspace(min(y) - 0.1, max(y) + 0.1, num=num_data_points)
+            dy = (max(y) + 0.1 - (min(y) - 0.1)) / (num_data_points - 1)
+
+            # # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
+            # triang = tri.Triangulation(x, y)
+            # interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in
+            #                                                         range(len(ids))])
+            # interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in
+            #                                                         range(len(ids))])
+            Xi, Yi = np.meshgrid(xi, yi)  # interpolation range (ARUCO covered image area)
+            # xreal = interpolator_xreal(Xi, Yi)
+            # yreal = interpolator_yreal(Xi, Yi)
+
+            from scipy.interpolate import LinearNDInterpolator, InterpolatedUnivariateSpline
 
             # Linearly interpolate the data (x, y) on a grid defined by (xi, yi).
-            triang = tri.Triangulation(x, y)
-            interpolator_xreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in
-                                                                    range(len(ids))])
-            interpolator_yreal = tri.LinearTriInterpolator(triang, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in
-                                                                    range(len(ids))])
-            Xi, Yi = np.meshgrid(xi, yi)  # interpolation range (ARUCO covered image area)
-            xreal = interpolator_xreal(Xi, Yi)
-            yreal = interpolator_yreal(Xi, Yi)
+            interp_xreal = LinearNDInterpolator(list(zip(x, y)),
+                                                [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))])
+            xreal = interp_xreal(Xi, Yi)
+            interp_yreal = LinearNDInterpolator(list(zip(x, y)),
+                                                [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
+            yreal = interp_yreal(Xi, Yi)
+
+
             eye_dict["cmap_xmap_interp"] = xreal
             eye_dict["cmap_ymap_interp"] = yreal
             eye_dict["cmap_x_interp"] = xi
             eye_dict["cmap_y_interp"] = yi
 
             # Extrapolating data outside the ARUCO covered range
-            ext_range = 50
-            xs = np.linspace(min(xi) - ext_range, max(xi) + ext_range)
-            ys = np.linspace(min(yi) - ext_range, max(yi) + ext_range)
+            ext_num_points = vision.extrap_skirt  # number of points to extrapolate
+            ext_range_x = ext_num_points * dx  # extrapolation range (whole image area)
+            ext_range_y = ext_num_points * dy  # extrapolation range (whole image area)
+            num_data_points = num_data_points + 2 * ext_num_points  # resolution of the interpolated map will be shape N x N
+            xs = np.linspace(min(xi) - ext_range_x, max(xi) + ext_range_x, num=num_data_points)
+            ys = np.linspace(min(yi) - ext_range_y, max(yi) + ext_range_y, num=num_data_points)
             xnew, ynew = np.meshgrid(xs, ys)  # extrapolation range (whole image area)
             xnew = xnew.flatten()
             ynew = ynew.flatten()
 
             rbf3_xreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][0] for i in range(len(ids))],
-                             function="multiquadric", smooth=5)
+                             function="multiquadric", smooth=0)
             rbf3_yreal = Rbf(x, y, [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))],
-                             function="multiquadric", smooth=5)
+                             function="multiquadric", smooth=0)
             xreal_extra = rbf3_xreal(xnew, ynew)
             yreal_extra = rbf3_yreal(xnew, ynew)
             xreal_extra_reshaped = xreal_extra.reshape((len(ys), len(xs)))
@@ -705,7 +825,7 @@ class CoBeCalib(object):
 
             if with_visualization:
                 # Visualization
-                fig, ax = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
+                fig, ax = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True)
 
                 # Show image with detections
                 plt.axes(ax[0, 0])
@@ -729,6 +849,7 @@ class CoBeCalib(object):
                 # Show interpolated real x coordinates
                 plt.axes(ax[0, 1])
                 ax[0, 1].contour(xi, yi, xreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                ax[0, 1].imshow(xreal, cmap="RdBu_r", origin='lower')
                 cntr1 = ax[0, 1].contourf(xi, yi, xreal, levels=14, cmap="RdBu_r")
 
                 ax[0, 1].plot(x, y, 'ko', ms=3)
@@ -743,6 +864,7 @@ class CoBeCalib(object):
                 # Show interpolated real y coordinates
                 plt.axes(ax[1, 1])
                 ax[1, 1].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                ax[1, 1].imshow(yreal, cmap="RdBu_r", origin='lower')
                 cntr1 = ax[1, 1].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
 
                 ax[1, 1].plot(x, y, 'ko', ms=3)
@@ -758,11 +880,10 @@ class CoBeCalib(object):
                 plt.axes(ax[0, 2])
                 # showing extrapolated values
                 ax[0, 2].contour(xs, ys, xreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
+                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 cntr1 = ax[0, 2].contourf(xs, ys, xreal_extra_reshaped, levels=50, cmap="RdBu_r",
-                                          vmin=np.min(xreal), vmax=np.max(xreal))
-                # showing interpolated values for double check
-                ax[0, 2].contour(xi, yi, xreal, levels=14, linewidths=0.5, colors='k', origin='lower')
-                cntr1 = ax[0, 2].contourf(xi, yi, xreal, levels=14, cmap="RdBu_r")
+                                          vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+
                 ax[0, 2].plot(x, y, 'ko', ms=3)
                 plt.xlabel("camera x")
                 plt.ylabel("camera y")
@@ -776,11 +897,12 @@ class CoBeCalib(object):
                 plt.axes(ax[1, 2])
                 # showing extrapolated values
                 ax[1, 2].contour(xs, ys, yreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
+                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 cntr1 = ax[1, 2].contourf(xs, ys, yreal_extra_reshaped, levels=50, cmap="RdBu_r",
-                                          vmin=np.min(yreal), vmax=np.max(yreal))
+                                          vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 # showing interpolated values for double check
-                ax[1, 2].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
-                cntr1 = ax[1, 2].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
+                # ax[1, 2].contour(xi, yi, yreal, levels=14, linewidths=0.5, colors='k', origin='lower')
+                # cntr1 = ax[1, 2].contourf(xi, yi, yreal, levels=14, cmap="RdBu_r")
                 ax[1, 2].plot(x, y, 'ko', ms=3)
                 plt.xlabel("camera x")
                 plt.ylabel("camera y")
@@ -789,6 +911,26 @@ class CoBeCalib(object):
                 plt.axis('scaled')
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+                x_real_nonans = xreal
+                x_real_nonans[np.isnan(xreal)] = 0
+                error = xreal_extra_reshaped[ext_num_points:-ext_num_points, ext_num_points:-ext_num_points] - x_real_nonans
+
+                # show extrapolated x coordinates
+                plt.axes(ax[0, 3])
+                # showing extrapolated values
+                ax[0, 3].imshow(error, cmap="RdBu_r", origin='lower')
+                ax[0, 3].plot(x, y, 'ko', ms=3)
+                plt.xlabel("camera x")
+                plt.ylabel("camera y")
+                plt.title("Extrapolation error (x)")
+                # keep aspect ratio original
+                plt.axis('scaled')
+                plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+                plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+
+                #todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
+                # polation when interpolation is not available.
 
                 # using tight layout
                 plt.tight_layout()
