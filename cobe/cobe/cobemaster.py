@@ -525,7 +525,7 @@ class CoBeMaster(object):
                                 switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None, no_calib=False, det_target="feet"):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
@@ -546,10 +546,18 @@ class CoBeMaster(object):
             else:
                 logger.info("Quitting...")
                 return
-        logger.info("Calibrating eyes...")
-        self.calibrate(with_visualization=True, interactive=True, detach=True)
+
+        if not no_calib:
+            logger.info("Calibrating eyes...")
+            self.calibrate(with_visualization=True, interactive=True, detach=True, eye_id=int(target_eye_name.split("_")[-1]))
+        else:
+            eye_name = target_eye_name
+            eye_dict = self.eyes[eye_name]
+            is_map_loaded = self.load_calibration_map(eye_name, eye_dict, force_load=True)
+            logger.info("Requested no calibration so loading calibration map from file. Success: " + str(is_map_loaded))
+
         logger.info("Starting OD detection on eyes...")
-        self.initialize_object_detectors()
+        self.initialize_object_detectors(target_eye_name=target_eye_name)
 
         # setting up visualization if requested
         if show_simulation_space:
@@ -573,8 +581,6 @@ class CoBeMaster(object):
 
             xs = np.arange(0, vision.display_width, 50)
             ys = np.arange(0, vision.display_height, 50)
-
-        det_target = "feet"
         logger.info(f"Detecting {det_target} as default...")
         log_every_n_frame = 20
         sum_inf_time = 0
@@ -584,130 +590,131 @@ class CoBeMaster(object):
                 for frid in range(t_max):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
-                        try:
-                            # timing framerate of calibration frames
-                            start_time = datetime.now()
-                            logger.debug("Asking for inference results...")
-                            # eye_dict["pyro_proxy"].get_calibration_frame()
-                            req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-                            detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416,
-                                                                          req_ts=req_ts)
-                            logger.debug("Received inference results!")
-                            logger.debug(f"Detections: {detections}")
-
-                            if eye_dict.get("cmap_xmap_interp") is not None:
-                                # choosing which detections to use and what does that mean
-                                detections = filter_detections(detections, det_target=det_target)
-
-                                # generating predator positions to be sent to the simulation
-                                predator_positions = []
-                                for detection in detections:
-                                    logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
-                                    xcam, ycam = detection["x"], detection["y"]
-
-                                    # scaling up the coordinates to the original calibration image size
-                                    xcam, ycam = xcam * (vision.display_width / vision.display_width), ycam * (
-                                            vision.display_height / vision.display_height)
-
-                                    # remapping detection point to simulation space according to ARCO map
-                                    xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
-
-                                    if not (xreal == 0 and yreal == 0):
-                                        # showing predator coordinates if requested
-                                        if show_simulation_space:
-                                            if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
-                                                logger.warning("Masked remapped values detected!")
-                                                xreal, yreal = 0, 0
-
-                                            axcam.clear()
-                                            axreal.clear()
-
-                                            plt.axes(axcam)
-                                            plt.scatter(xcam, ycam, c='r', marker='o')
-                                            plt.title("Camera space")
-                                            plt.xlim(0, vision.display_width)
-                                            plt.ylim(0, vision.display_height)
-
-                                            plt.axes(axreal)
-                                            plt.scatter(xreal, yreal, c='r', marker='o', s=80)
-                                            plt.title("Simulation space")
-                                            plt.xlim(0, aruco.proj_calib_image_width)
-                                            plt.ylim(0, aruco.proj_calib_image_width)
-
-                                            plt.pause(0.001)
-
-                                        # scaling down the coordinates from the original calibration image size to the
-                                        # simulation space
-                                        extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
-                                                                   vision.interp_map_res
-                                        theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
-                                        centering_const = theoretical_extrap_space_size / 2
-                                        xreal, yreal = xreal * (
-                                                theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
-                                                       yreal * (
-                                                               theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
-
-                                        # matching directions in simulation space
-                                        xreal, yreal = yreal, -xreal
-
-                                        # todo: simplify this by merging the 2 scaling commandscobe-pm
-
-                                        predator_positions.append([xreal, yreal])
-                                        logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
-
-                                    else:
-                                        logger.info(f"No predator detected on eye {eye_name}")
-
-                                # generating predator position
-                                if len(predator_positions) > 0:
-                                    if kalman_queue is not None:
-                                        kalman_queue.put((req_ts, datetime.now(), predator_positions))
-                                    else:
-                                        generate_pred_json(predator_positions)
-
+                        if eye_name == target_eye_name:
+                            try:
                                 # timing framerate of calibration frames
-                                end_time = datetime.now()
-                                logger.debug(
-                                    f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
-                                if frid % log_every_n_frame == 0 and frid != 0:
-                                    avg_inf_time = sum_inf_time / log_every_n_frame
-                                    logger.info(
-                                        f"Health - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
-                                    sum_inf_time = 0
+                                start_time = datetime.now()
+                                logger.debug(f"Asking for inference results from eye {eye_name}...")
+                                # eye_dict["pyro_proxy"].get_calibration_frame()
+                                req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
+                                detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416,
+                                                                              req_ts=req_ts)
+                                logger.debug("Received inference results!")
+                                logger.debug(f"Detections: {detections}")
+
+                                if eye_dict.get("cmap_xmap_interp") is not None:
+                                    # choosing which detections to use and what does that mean
+                                    detections = filter_detections(detections, det_target=det_target)
+
+                                    # generating predator positions to be sent to the simulation
+                                    predator_positions = []
+                                    for detection in detections:
+                                        logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
+                                        xcam, ycam = detection["x"], detection["y"]
+
+                                        # scaling up the coordinates to the original calibration image size
+                                        xcam, ycam = xcam * (vision.display_width / vision.display_width), ycam * (
+                                                vision.display_height / vision.display_height)
+
+                                        # remapping detection point to simulation space according to ARCO map
+                                        xreal, yreal = self.remap_detection_point(eye_dict, xcam, ycam)
+
+                                        if not (xreal == 0 and yreal == 0):
+                                            # showing predator coordinates if requested
+                                            if show_simulation_space:
+                                                if np.ma.is_masked(xreal) or np.ma.is_masked(yreal):
+                                                    logger.warning("Masked remapped values detected!")
+                                                    xreal, yreal = 0, 0
+
+                                                axcam.clear()
+                                                axreal.clear()
+
+                                                plt.axes(axcam)
+                                                plt.scatter(xcam, ycam, c='r', marker='o')
+                                                plt.title("Camera space")
+                                                plt.xlim(0, vision.display_width)
+                                                plt.ylim(0, vision.display_height)
+
+                                                plt.axes(axreal)
+                                                plt.scatter(xreal, yreal, c='r', marker='o', s=80)
+                                                plt.title("Simulation space")
+                                                plt.xlim(0, aruco.proj_calib_image_width)
+                                                plt.ylim(0, aruco.proj_calib_image_width)
+
+                                                plt.pause(0.001)
+
+                                            # scaling down the coordinates from the original calibration image size to the
+                                            # simulation space
+                                            extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
+                                                                       vision.interp_map_res
+                                            theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
+                                            centering_const = theoretical_extrap_space_size / 2
+                                            xreal, yreal = xreal * (
+                                                    theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
+                                                           yreal * (
+                                                                   theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
+
+                                            # matching directions in simulation space
+                                            xreal, yreal = yreal, -xreal
+
+                                            # todo: simplify this by merging the 2 scaling commandscobe-pm
+
+                                            predator_positions.append([xreal, yreal])
+                                            logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
+
+                                        else:
+                                            logger.info(f"No predator detected on eye {eye_name}")
+
+                                    # generating predator position
+                                    if len(predator_positions) > 0:
+                                        if kalman_queue is not None:
+                                            kalman_queue.put((req_ts, datetime.now(), predator_positions))
+                                        else:
+                                            generate_pred_json(predator_positions)
+
+                                    # timing framerate of calibration frames
+                                    end_time = datetime.now()
+                                    logger.debug(
+                                        f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
+                                    if frid % log_every_n_frame == 0 and frid != 0:
+                                        avg_inf_time = sum_inf_time / log_every_n_frame
+                                        logger.info(
+                                            f"Health - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                        sum_inf_time = 0
+                                    else:
+                                        sum_inf_time += (end_time - start_time).total_seconds()
+
                                 else:
-                                    sum_inf_time += (end_time - start_time).total_seconds()
+                                    raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
-                            else:
-                                raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
+                                with keyboard.Events() as events:
+                                    # Block at most 0.1 second
+                                    event = events.get(0.001)
+                                    if event is None:
+                                        pass
+                                    elif event.key == keyboard.Key.esc:
+                                        logger.info("Quitting requested by user. Exiting...")
+                                        return
+                                    elif event.key == keyboard.Key.up:
+                                        if det_target == "feet":
+                                            det_target = "stick"
+                                        elif det_target == "stick":
+                                            det_target = "feet"
+                                        logger.info(f"Switching detection target to {det_target}!")
 
-                            with keyboard.Events() as events:
-                                # Block at most 0.1 second
-                                event = events.get(0.001)
-                                if event is None:
-                                    pass
-                                elif event.key == keyboard.Key.esc:
-                                    logger.info("Quitting requested by user. Exiting...")
-                                    return
-                                elif event.key == keyboard.Key.up:
-                                    if det_target == "feet":
-                                        det_target = "stick"
-                                    elif det_target == "stick":
-                                        det_target = "feet"
-                                    logger.info(f"Switching detection target to {det_target}!")
+                                # logger.info("Sleeping for 3 seconds...")
+                                # time.sleep(5)
 
-                            # logger.info("Sleeping for 3 seconds...")
-                            # time.sleep(5)
-
-                        except Exception as e:
-                            if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
-                                logger.warning(
-                                    "Connection error: Inference server is probably not yet started properly. "
-                                    "retrying in 3"
-                                    "seconds.")
-                                sleep(3)
-                            else:
-                                logger.error(e)
-                                break
+                            except Exception as e:
+                                if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
+                                    logger.warning(
+                                        "Connection error: Inference server is probably not yet started properly. "
+                                        "retrying in 3"
+                                        "seconds.")
+                                    sleep(3)
+                                else:
+                                    logger.error(e)
+                                    break
 
             except Exception as e:
                 logger.error(e)
