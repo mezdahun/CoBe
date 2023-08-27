@@ -33,32 +33,55 @@ from cobe.pmodule.pmodule import generate_pred_json
 
 # Setting up file logger
 import logging
+
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
 
 
-def filter_detections(detections):
-    """Choosing correct detectionposition according to body parts"""
+def filter_detections(detections, det_target="feet"):
+    """Choosing correct detectionposition according to body parts
+    :param detections: list of detections
+    :param det_target: class to filter for
+    :return: list of detections with only one detection"""
     # deciding which bunding box to use
     logger.debug("Filtering detections.")
     stick_dets = [det for det in detections if det["class"] == "stick"]
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
-    if len(stick_dets) > 0:
-        logger.debug("Using stick detection.")
-        detections = stick_dets
-    else:
-        detections = []
-    # elif len(feet_dets) > 0:
-    #     logger.debug("Using feet detection.")
-    #     detections = feet_dets
-    # elif len(trunk_dets) > 0:
-    #     logger.debug("Using trunk detection.")
-    #     detections = trunk_dets
-    # elif len(head_dets) > 0:
-    #     logger.debug("Using head detection.")
-    #     detections = head_dets
+
+    # If a stick is visible we override any other detections, this is the preferred detection
+    if det_target == "stick":
+        if len(stick_dets) > 0:
+            logger.debug("Using stick detection.")
+            detections = stick_dets
+        else:
+            # Otherwise we prefer feet detections, but that is impossible in some positions
+            detections = []
+    elif det_target == "feet":
+        if len(feet_dets) > 0:
+            logger.debug("Using feet detection.")
+            detections = feet_dets
+        else:
+            # Otherwise we prefer feet detections, but that is impossible in some positions
+            detections = []
+        # if len(feet_dets) > 0:
+        #     logger.debug("Using feet detection.")
+        #     detections = feet_dets
+        # elif len(feet_dets) > 0:
+        #     # todo: draw a line from head through trunk and estimate feet position, or alternatively
+        #     #  estimate feet position according to the excentricity of trunk and head detections. I.e. if head detected
+        #     #  in upper part of image, feet are probably in lower part of image according to radial distortion.
+        #     logger.debug("Using feet detection.")
+        #     detections = feet_dets
+        # elif len(trunk_dets) > 0:
+        #     logger.debug("Using trunk detection.")
+        #     detections = trunk_dets
+        # elif len(head_dets) > 0:
+        #     logger.debug("Using head detection.")
+        #     detections = head_dets
+        # else:
+        #     detections = []
 
     if len(detections) > 1:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
