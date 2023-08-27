@@ -80,16 +80,39 @@ def start_eyeserver():
     eyes = Group(*eye_ips, user=network.nano_username, config=config)
     for c in eyes:
         c.connect_kwargs.password = PSWD
-        c.run(f'cd {network.nano_cobe_installdir} && '
-              'git stash && '
-              'git pull && '
-              'git stash pop && '
-              'ls && '
-              'dtach -n /tmp/tmpdtach '
-              f'python3 cobe/vision/eye.py --host={c.host} --port={network.unified_eyeserver_port}',
-              hide=True,
-              pty=False)
-        logger.info(f'Started eyeserver on host {c.host}')
+
+        # checking for already running eyeserver instances
+        start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+        num_found_procs = len(start_result.stdout.split("\n"))
+        PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+        found_eye_servers = num_found_procs > 3
+
+        # asking user if they want to restart the eyeserver if already running
+        if found_eye_servers:
+            logger.info(f"Found {num_found_procs} processes running on host {c.host}.")
+            logger.info(f"Seems like eyeserver is already running with PID {PID}, skipping...")
+            restart_eyeserver = input("Do you want to restart/update the eyeserver? (y/n): ").lower() == "y"
+        else:
+            restart_eyeserver = False
+
+        # restarting eyeserver if requested
+        if restart_eyeserver:
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed eyeserver on host {c.host}, will restart now...")
+        else:
+            logger.info(f"Skipping eyeserver startup on host {c.host} as requested...")
+
+        # starting a new eye server if it was not running or a restart was requested
+        if not found_eye_servers or restart_eyeserver:
+            # starting eyeserver
+            c.run(f'cd {network.nano_cobe_installdir} && '
+                  'git pull && '
+                  'ls && '
+                  'dtach -n /tmp/tmpdtach '
+                  f'python3 cobe/vision/eye.py --host={c.host} --port={network.unified_eyeserver_port}',
+                  hide=True,
+                  pty=False)
+            logger.info(f'Started eyeserver on host {c.host}')
         time.sleep(5)
 
         getpass('Eye servers started. Press any key to stop the eye servers...')
@@ -115,6 +138,29 @@ def start_eyeserver():
                 c.sudo(f'shutdown -h now', warn=True, shell=False)
                 logger.info(f"Shutting down host {c.host}")
             logger.info("Shutdown complete.")
+
+def stop_eyeserver():
+    """Stops the pyro eyeserver on the eyes defined by settins.network via fabric. Can be used when
+    eyeserver keeps running in the background blocking new connections"""
+    logger.info("Starting eye servers...")
+    PSWD = getpass('sudo password to start eyeservers: ')
+    eye_ips = [eye['host'] for eye in network.eyes.values()]
+    config = Config(overrides={'sudo': {'password': PSWD}})
+    eyes = Group(*eye_ips, user=network.nano_username, config=config)
+    for c in eyes:
+        c.connect_kwargs.password = PSWD
+        logger.info('Killing eye-server processes by collected PIDs...')
+        for c in eyes:
+            logger.info(f'Stopping eyeserver on host {c.host}')
+            c.connect_kwargs.password = PSWD
+            start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+            PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+            logger.info(f"Found server process with PID: {PID}, killing it...")
+            # sending INT SIG to the main process will trigger graceful exit (equivalent to KeyboardInterrup)
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed eyeserver on host {c.host}")
+        time.sleep(5)
+
 
 
 def calibrate():

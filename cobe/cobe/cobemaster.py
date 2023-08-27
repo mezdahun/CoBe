@@ -33,32 +33,55 @@ from cobe.pmodule.pmodule import generate_pred_json
 
 # Setting up file logger
 import logging
+
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
 
 
-def filter_detections(detections):
-    """Choosing correct detectionposition according to body parts"""
+def filter_detections(detections, det_target="feet"):
+    """Choosing correct detectionposition according to body parts
+    :param detections: list of detections
+    :param det_target: class to filter for
+    :return: list of detections with only one detection"""
     # deciding which bunding box to use
     logger.debug("Filtering detections.")
     stick_dets = [det for det in detections if det["class"] == "stick"]
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
-    if len(stick_dets) > 0:
-        logger.debug("Using stick detection.")
-        detections = stick_dets
-    else:
-        detections = []
-    # elif len(feet_dets) > 0:
-    #     logger.debug("Using feet detection.")
-    #     detections = feet_dets
-    # elif len(trunk_dets) > 0:
-    #     logger.debug("Using trunk detection.")
-    #     detections = trunk_dets
-    # elif len(head_dets) > 0:
-    #     logger.debug("Using head detection.")
-    #     detections = head_dets
+
+    # If a stick is visible we override any other detections, this is the preferred detection
+    if det_target == "stick":
+        if len(stick_dets) > 0:
+            logger.debug("Using stick detection.")
+            detections = stick_dets
+        else:
+            # Otherwise we prefer feet detections, but that is impossible in some positions
+            detections = []
+    elif det_target == "feet":
+        if len(feet_dets) > 0:
+            logger.debug("Using feet detection.")
+            detections = feet_dets
+        else:
+            # Otherwise we prefer feet detections, but that is impossible in some positions
+            detections = []
+        # if len(feet_dets) > 0:
+        #     logger.debug("Using feet detection.")
+        #     detections = feet_dets
+        # elif len(feet_dets) > 0:
+        #     # todo: draw a line from head through trunk and estimate feet position, or alternatively
+        #     #  estimate feet position according to the excentricity of trunk and head detections. I.e. if head detected
+        #     #  in upper part of image, feet are probably in lower part of image according to radial distortion.
+        #     logger.debug("Using feet detection.")
+        #     detections = feet_dets
+        # elif len(trunk_dets) > 0:
+        #     logger.debug("Using trunk detection.")
+        #     detections = trunk_dets
+        # elif len(head_dets) > 0:
+        #     logger.debug("Using head detection.")
+        #     detections = head_dets
+        # else:
+        #     detections = []
 
     if len(detections) > 1:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
@@ -302,7 +325,6 @@ class CoBeMaster(object):
         # logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
         # logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
 
-
         x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
         # find index of closest y value in eyes calibration map to provided ycam
         logger.debug("No interpolated value found for xcam!")
@@ -319,7 +341,6 @@ class CoBeMaster(object):
         # logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
         # logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
         # xreal, yreal = 0, 0
-
 
         # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
@@ -514,6 +535,10 @@ class CoBeMaster(object):
             xs = np.arange(0, vision.display_width, 50)
             ys = np.arange(0, vision.display_height, 50)
 
+        det_target = "feet"
+        logger.inof(f"Detecting {det_target} as default...")
+        log_every_n_frame = 20
+        sum_inf_time = 0
         try:
             try:
                 logger.info("CoBe has been started! Press ESC long to quit.")
@@ -523,22 +548,22 @@ class CoBeMaster(object):
                         try:
                             # timing framerate of calibration frames
                             start_time = datetime.now()
-                            logger.info("Asking for inference results...")
+                            logger.debug("Asking for inference results...")
                             # eye_dict["pyro_proxy"].get_calibration_frame()
                             req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416, req_ts=req_ts)
-                            logger.info("Received inference results!")
-                            det_time = datetime.now() - start_time
-                            logger.info(f"Detection took {det_time.total_seconds()} seconds")
+                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416,
+                                                                          req_ts=req_ts)
+                            logger.debug("Received inference results!")
+                            logger.debug(f"Detections: {detections}")
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
-                                detections = filter_detections(detections)
+                                detections = filter_detections(detections, det_target=det_target)
 
                                 # generating predator positions to be sent to the simulation
                                 predator_positions = []
                                 for detection in detections:
-                                    logger.info(f"Frame in processing was requested at {detection.get('request_ts')}")
+                                    logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
                                     xcam, ycam = detection["x"], detection["y"]
 
                                     # scaling up the coordinates to the original calibration image size
@@ -575,13 +600,13 @@ class CoBeMaster(object):
                                         # scaling down the coordinates from the original calibration image size to the
                                         # simulation space
                                         extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
-                                                                    vision.interp_map_res
+                                                                   vision.interp_map_res
                                         theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
                                         centering_const = theoretical_extrap_space_size / 2
                                         xreal, yreal = xreal * (
                                                 theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
                                                        yreal * (
-                                                theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
+                                                               theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
 
                                         # matching directions in simulation space
                                         xreal, yreal = yreal, -xreal
@@ -603,18 +628,33 @@ class CoBeMaster(object):
 
                                 # timing framerate of calibration frames
                                 end_time = datetime.now()
-                                logger.error(f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
+                                logger.debug(
+                                    f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
+                                if frid % log_every_n_frame == 0 and frid != 0:
+                                    avg_inf_time = sum_inf_time / log_every_n_frame
+                                    logger.info(
+                                        f"Health - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                    sum_inf_time = 0
+                                else:
+                                    sum_inf_time += (end_time - start_time).total_seconds()
+
                             else:
                                 raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
                             with keyboard.Events() as events:
                                 # Block at most 0.1 second
-                                event = events.get(0.01)
+                                event = events.get(0.001)
                                 if event is None:
                                     pass
                                 elif event.key == keyboard.Key.esc:
                                     logger.info("Quitting requested by user. Exiting...")
                                     return
+                                elif event.key == keyboard.Key.up:
+                                    if det_target == "feet":
+                                        det_target = "stick"
+                                    elif det_target == "stick":
+                                        det_target = "feet"
+                                    logger.info(f"Switching detection target to {det_target}!")
 
                             # logger.info("Sleeping for 3 seconds...")
                             # time.sleep(5)
@@ -723,7 +763,8 @@ class CoBeCalib(object):
                 eye_dict["calibration_score"] = len(corners) / (aruco.num_codes_per_row ** 2)
                 # saving annotated image
                 eye_dict["calibration_frame_annot"] = cv2.aruco.drawDetectedMarkers(eye_dict["calibration_frame"],
-                                                                                    eye_dict["detected_aruco"]["corners"],
+                                                                                    eye_dict["detected_aruco"][
+                                                                                        "corners"],
                                                                                     eye_dict["detected_aruco"]["ids"])
                 if with_visualization:
                     # show image
@@ -767,7 +808,7 @@ class CoBeCalib(object):
             num_data_points = vision.interp_map_res  # resolution of the interpolated map will be shape N x N
             skirt = 0.1  # number of pixels to add to the border of the map to avoid edge effects
 
-            #todo: cleanup
+            # todo: cleanup
             # Create grid values first.
             xi = np.linspace(min(x) - 0.1, max(x) + 0.1, num=num_data_points)
             dx = (max(x) + 0.1 - (min(x) - 0.1)) / (num_data_points - 1)
@@ -793,7 +834,6 @@ class CoBeCalib(object):
             interp_yreal = LinearNDInterpolator(list(zip(x, y)),
                                                 [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
             yreal = interp_yreal(Xi, Yi)
-
 
             eye_dict["cmap_xmap_interp"] = xreal
             eye_dict["cmap_ymap_interp"] = yreal
@@ -881,7 +921,8 @@ class CoBeCalib(object):
                 plt.axes(ax[0, 2])
                 # showing extrapolated values
                 ax[0, 2].contour(xs, ys, xreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
-                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower', vmin=np.nanmin(yreal),
+                                vmax=np.nanmax(yreal))
                 cntr1 = ax[0, 2].contourf(xs, ys, xreal_extra_reshaped, levels=50, cmap="RdBu_r",
                                           vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
 
@@ -898,7 +939,8 @@ class CoBeCalib(object):
                 plt.axes(ax[1, 2])
                 # showing extrapolated values
                 ax[1, 2].contour(xs, ys, yreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
-                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower', vmin=np.nanmin(yreal),
+                                vmax=np.nanmax(yreal))
                 cntr1 = ax[1, 2].contourf(xs, ys, yreal_extra_reshaped, levels=50, cmap="RdBu_r",
                                           vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 # showing interpolated values for double check
@@ -915,7 +957,8 @@ class CoBeCalib(object):
 
                 x_real_nonans = xreal
                 x_real_nonans[np.isnan(xreal)] = 0
-                error = xreal_extra_reshaped[ext_num_points:-ext_num_points, ext_num_points:-ext_num_points] - x_real_nonans
+                error = xreal_extra_reshaped[ext_num_points:-ext_num_points,
+                        ext_num_points:-ext_num_points] - x_real_nonans
 
                 # show extrapolated x coordinates
                 plt.axes(ax[0, 3])
@@ -930,7 +973,7 @@ class CoBeCalib(object):
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
 
-                #todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
+                # todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
                 # polation when interpolation is not available.
 
                 # using tight layout
