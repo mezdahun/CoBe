@@ -94,7 +94,7 @@ def filter_detections(detections, det_target="feet"):
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
 
-    def __init__(self):
+    def __init__(self, pswd=None):
         """Constructor for CoBeMaster"""
         # eyes of the network
         self.eyes = self.create_eye_objects()
@@ -109,21 +109,25 @@ class CoBeMaster(object):
         # calib data dir
         self.calib_data_dir = os.path.join(self.cobe_root_dir, "settings", "calibration_data")
         # requesting master password for nanos if they are not set yet
-        self.check_pswds()
+        self.check_pswds(pswd)
 
-    def check_pswds(self):
+    def check_pswds(self, pswd=None):
         """Checking if the password is already set on the eyes and if not asking from user"""
         ask_for_pswd = False
-        for eye_name, eye_dict in self.eyes.items():
-            if not eye_dict["pyro_proxy"].has_pswd():
-                logger.info(f"Eye {eye_name} does not have a password set.")
-                ask_for_pswd = True
-                break
+        if pswd is None:
+            for eye_name, eye_dict in self.eyes.items():
+                if not eye_dict["pyro_proxy"].has_pswd():
+                    logger.info(f"Eye {eye_name} does not have a password set.")
+                    ask_for_pswd = True
+                    break
 
         if ask_for_pswd:
             nano_password = getpass("Please enter password for nanos: ")
             for eye_name, eye_dict in self.eyes.items():
                 eye_dict["pyro_proxy"].set_pswd(nano_password)
+        elif pswd is not None:
+            for eye_name, eye_dict in self.eyes.items():
+                eye_dict["pyro_proxy"].set_pswd(pswd)
 
     def create_eye_objects(self):
         """Creates eye Pyro objects from the network settings"""
@@ -135,7 +139,7 @@ class CoBeMaster(object):
             # adding fisheye calibration map for eye
             eyes[eye_name]["pyro_proxy"].set_fisheye_calibration_map(eye_data["fisheye_calibration_map"])
             # testing created eye by accessing public Pyro method and comparing outcome with expected ID
-            assert eyes[eye_name]["pyro_proxy"].return_id() == eyes[eye_name]["eye_data"]["expected_id"]
+            assert int(eyes[eye_name]["pyro_proxy"].return_id()) == int(eyes[eye_name]["eye_data"]["expected_id"])
         return eyes
 
     def initialize_object_detectors(self):
