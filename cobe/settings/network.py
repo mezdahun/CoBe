@@ -7,7 +7,7 @@ unified_eyeserver_port = 1234
 eyes = {
     "eye_0": {
         "expected_id": 0,
-        "host": "192.168.0.102",
+        "host": "192.168.0.103",
         "port": f"{unified_eyeserver_port}",
         "uri": "PYRO:",
         "name": "cobe.eye",
