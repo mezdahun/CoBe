@@ -142,27 +142,34 @@ class CoBeMaster(object):
             assert int(eyes[eye_name]["pyro_proxy"].return_id()) == int(eyes[eye_name]["eye_data"]["expected_id"])
         return eyes
 
-    def initialize_object_detectors(self):
+    def initialize_object_detectors(self, target_eye_name=None):
         """Starting the roboflow inference servers on all the eyes and carry out a single detection to initialize
         the model weights. This needs WWW access on the eyes as it downloads model weights from Roboflow"""
         logger.info("Initializing object detectors...")
+        if target_eye_name is not None:
+            eye_ids = [eye["expected_id"] for eye in network.eyes.values()]
+        else:
+            eye_ids = [self.eyes[target_eye_name]["eye_data"]["expected_id"]]
+
         for eye_name, eye_dict in self.eyes.items():
-            # start docker servers
-            logger.info(f"Starting inference server on {eye_name}.")
-            eye_dict["pyro_proxy"].start_inference_server()
-            sleep(2)
+            if eye_dict["eye_data"]["expected_id"] in eye_ids:
+                # start docker servers
+                logger.info(f"Starting inference server on {eye_name}.")
+                eye_dict["pyro_proxy"].start_inference_server()
+                sleep(2)
 
         logger.info("Waiting for inference servers to start...")
         sleep(5)
         for eye_name, eye_dict in self.eyes.items():
-            # carry out a single detection to initialize the model weights
-            logger.debug(f"Initializing model on {eye_name}. Model parameters: {odmodel.model_name}, "
-                         f"{odmodel.model_id}, {odmodel.inf_server_url}, {odmodel.version}")
-            eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
-                                               model_name=odmodel.model_name,
-                                               model_id=odmodel.model_id,
-                                               inf_server_url=odmodel.inf_server_url,
-                                               version=odmodel.version)
+            if eye_dict["eye_data"]["expected_id"] in eye_ids:
+                # carry out a single detection to initialize the model weights
+                logger.debug(f"Initializing model on {eye_name}. Model parameters: {odmodel.model_name}, "
+                             f"{odmodel.model_id}, {odmodel.inf_server_url}, {odmodel.version}")
+                eye_dict["pyro_proxy"].initODModel(api_key=odmodel.api_key,
+                                                   model_name=odmodel.model_name,
+                                                   model_id=odmodel.model_id,
+                                                   inf_server_url=odmodel.inf_server_url,
+                                                   version=odmodel.version)
 
     def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True, eye_id=-1):
         """Calculates the calibration maps for each eye and stores them in the eye dict
