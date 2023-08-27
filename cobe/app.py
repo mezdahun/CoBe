@@ -1,3 +1,4 @@
+import argparse
 import time
 
 from cobe.cobe.cobemaster import CoBeMaster
@@ -163,10 +164,27 @@ def stop_eyeserver():
 
 
 
-def calibrate():
-    """Test Calibration of all eyes interactively"""
+def calibrate(eye_id=-1, on_screen=False):
+    """Test Calibration of all eyes interactively
+    :param eye_id: ID of the eye to be calibrated as in settings.network. If -1 (default) all eyes will be calibrated.
+    """
+    args = argparse.ArgumentParser(description="Calibrates the mapping of CoBe eyes via projected ARUCO codes")
+
+    # adding optional arguments
+    aid = args.add_argument("--eye_id", default=None, help="ID (int) of the eye (nano board) to be calibrated as in "
+                                                                        "settings.network")
+    aos = args.add_argument("--on_screen", default=False, help="If set to True, the calibration target will be "
+                                                                            "displayed on the computer screen instead "
+                                                                            "of the projectors")
+
+    if aid is not None:
+        eye_id = aid
+    if aos is not None:
+        on_screen = bool(aos)
+
     master = CoBeMaster()
-    ##  To calibrate with computer screen as calibration target uncomment the following line:
-    # master.calibrator.generate_calibration_image(detach=True)
+    if on_screen:
+        # generaating calibration image on screen if requested
+        master.calibrator.generate_calibration_image(detach=True)
     ## Start calibration
-    master.calibrate(with_visualization=True, interactive=True, detach=True)
+    master.calibrate(with_visualization=True, interactive=True, detach=True, eye_id=eye_id)
