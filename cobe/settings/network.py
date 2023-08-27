@@ -12,14 +12,21 @@ eyes = {
         "port": f"{unified_eyeserver_port}",
         "uri": "PYRO:",
         "name": "cobe.eye",
-        "fisheye_calibration_map": "map_eye_0.npz"
-    },
-    # "eye_1": {
-    #     "expected_id": 1,
-    #     "host": "192.168.0.103",
-    #     "port": f"{unified_eyeserver_port}",
-    #     "uri": "PYRO:",
-    #     "name": "cobe.eye",
-    #     "fisheye_calibration_map": "map_eye_1.npz"
-    # }
+        "fisheye_calibration_map": "map_eye_0.npz",
+        "start_x": 345,
+        "start_y": 40,
+        "crop_width": 2500,
+        "crop_height": 2500},
+    "eye_1": {
+        "expected_id": 1,
+        "host": "192.168.0.101",
+        "port": f"{unified_eyeserver_port}",
+        "uri": "PYRO:",
+        "name": "cobe.eye",
+        "fisheye_calibration_map": "map_eye_1.npz",
+        "start_x": 923,
+        "start_y": 600,
+        "crop_width": 1500,
+        "crop_height": 1500
+    }
 }
