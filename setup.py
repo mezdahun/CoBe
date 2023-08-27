@@ -45,6 +45,7 @@ setup(
                             "cobe-master-start-eyeserver=cobe.app:start_eyeserver",
                             "cobe-master-stop-eyeserver=cobe.app:stop_eyeserver",
                             "cobe-master-start=cobe.app:main",
+                            "cobe-master-start-multieye=cobe.app:main_multieye",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
                             "cobe-master-calibrate=cobe.app:calibrate",

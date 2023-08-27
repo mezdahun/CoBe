@@ -74,6 +74,38 @@ def main_kalman():
     kalman_process.terminate()
     kalman_process.join()
 
+def main_multieye():
+    pswd = input("Provide master password:")
+    # Creating common queue to push detections
+    pred_queue = Queue()
+    # Creating kalman process to run in different thread
+    kalman_process = Process(target=kalman_process_OD, args=(pred_queue, None,))
+    # Creating process to run different eyes in different threads
+    master = CoBeMaster(pswd=pswd)
+    eye_processes = []
+    for eye_name in network.eyes.keys():
+        logger.info(f"Starting eye {eye_name}")
+        eye_process = Process(target=master.start, args=(False, eye_name, 10000, pred_queue, True, "stick",))
+        eye_processes.append(eye_process)
+    # Starting eye processes
+    kalman_process.start()
+    for eye_process in eye_processes:
+        eye_process.start()
+        time.sleep(0.05)
+    input("Waiting to stop...")
+    # Terminating and joining eye processes
+    for eye_process in eye_processes:
+        try:
+            eye_process.terminate()
+            eye_process.join()
+        except Exception as e:
+            logger.error(f"Error terminating eye process: {e}")
+    # Terminating and joining kalman process
+    kalman_process.terminate()
+    kalman_process.join()
+
+
+
 
 def cleanup_inf_servers():
     """Cleans up the inference servers on all eyes"""
