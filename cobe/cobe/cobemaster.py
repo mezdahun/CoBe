@@ -217,7 +217,7 @@ class CoBeMaster(object):
 
                         # calculate the calibration maps for each eye and store them in the eye dict
                         logger.debug("Calculating calibration maps...")
-                        self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
+                        self.calibrator.interpolate_xy_maps(eyes_in_calib, with_visualization=with_visualization, detach=detach)
 
                         if interactive:
                             retry_input = input("Press r to retry calibration, or enter to continue...")
