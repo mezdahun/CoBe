@@ -160,54 +160,68 @@ class CoBeMaster(object):
                                                inf_server_url=odmodel.inf_server_url,
                                                version=odmodel.version)
 
-    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True):
+    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True, eye_id=-1):
         """Calculates the calibration maps for each eye and stores them in the eye dict
         :param with_visualization: if True, the calibration maps are visualized
         :param interactive: if True, the calibration maps are regenerated until the user agrees with quality
         :param detach: if True, the calibration maps are calculated in a separate thread
-        :param with_save: if True, the calibration maps are saved to disk as json files"""
-        retry = [True for i in range(len(self.eyes))]
-        eye_i = 0
+        :param with_save: if True, the calibration maps are saved to disk as json files
+        :param eye_id: id of eye to be calibrated. if -1 all of them will be claibrated 1-by-1"""
+
+        if eye_id == -1:
+            eyes_to_calib = [i for i in range(len(self.eyes))]
+        else:
+            eyes_to_calib = [eye_id]
+        logger.info(f"Eyes with ID {eyes_to_calib} will be calibrated.")
+        retry = [True for i in range(len(eyes_to_calib))]
+
         for eye_name, eye_dict in self.eyes.items():
-            is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
-            is_pattern_projected = False
-            if not is_map_loaded:
-                logger.info(f"Calculating calibration maps for {eye_name}.")
-                logger.debug("Sending calibration image to projectors...")
-                try:
-                    self.project_calibration_image()
-                    sleep(3)
-                    is_pattern_projected = True
-                except Exception as e:
-                    logger.error(f"Exception while projecting calibration image: {e}")
-                    logger.error("Trying to continue without projecting calibration image.")
+            eye_i = int(eye_name.split('_')[-1])
+            if eye_i in eyes_to_calib:
+                logger.info(f"Calibrating eye {eye_name} as requested.")
+                is_map_loaded = self.load_calibration_map(eye_name, eye_dict)
+                is_pattern_projected = False
+                if not is_map_loaded:
+                    logger.info(f"Calculating calibration maps for {eye_name}.")
+                    logger.debug("Sending calibration image to projectors...")
+                    try:
+                        self.project_calibration_image()
+                        sleep(3)
+                        is_pattern_projected = True
+                    except Exception as e:
+                        logger.error(f"Exception while projecting calibration image: {e}")
+                        logger.error("Trying to continue without projecting calibration image.")
 
-                while retry[eye_i]:
-                    # get a single calibration image from every eye object
-                    logger.debug("Fetching calibration images from eyes...")
-                    self.calibrator.fetch_calibration_frames(self.eyes)
+                    while retry[eye_i]:
+                        # get a single calibration image from every eye object
+                        logger.debug("Fetching calibration images from eyes...")
+                        self.calibrator.fetch_calibration_frames(self.eyes)
 
-                    # detect the aruco marker mesh on the calibration images and save data in eye dicts
-                    logger.debug("Detecting ARUCO codes...")
-                    self.calibrator.detect_ARUCO_codes(self.eyes)
+                        # detect the aruco marker mesh on the calibration images and save data in eye dicts
+                        logger.debug("Detecting ARUCO codes...")
+                        self.calibrator.detect_ARUCO_codes(self.eyes)
 
-                    # calculate the calibration maps for each eye and store them in the eye dict
-                    logger.debug("Calculating calibration maps...")
-                    self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
+                        # calculate the calibration maps for each eye and store them in the eye dict
+                        logger.debug("Calculating calibration maps...")
+                        self.calibrator.interpolate_xy_maps(self.eyes, with_visualization=with_visualization, detach=detach)
 
-                    if interactive:
-                        retry_input = input("Press r to retry calibration, or enter to continue...")
-                        if retry_input == "r":
-                            retry[eye_i] = True
+                        if interactive:
+                            retry_input = input("Press r to retry calibration, or enter to continue...")
+                            if retry_input == "r":
+                                retry[eye_i] = True
+                            else:
+                                logger.info(f"Calibration results accepted by user for {eye_name}.")
+                                retry[eye_i] = False
                         else:
-                            logger.info(f"Calibration results accepted by user for {eye_name}.")
                             retry[eye_i] = False
-                    else:
-                        retry[eye_i] = False
-            if is_pattern_projected:
-                logger.debug("Removing calibration image from projectors...")
-                self.remove_calibration_image()
-                sleep(3)
+
+                if is_pattern_projected:
+                    logger.debug("Removing calibration image from projectors...")
+                    self.remove_calibration_image()
+                    sleep(3)
+            else:
+                logger.info(f"Skipping calibration for {eye_name} according to calibration agruments.")
+
         self.save_calibration_maps()
         if with_visualization:
             # closing all matplotlib windows after calibration
@@ -392,14 +406,14 @@ class CoBeMaster(object):
 
                     plt.pause(0.001)
 
-    def calibrate(self, with_visualization=True, interactive=True, detach=True):
+    def calibrate(self, with_visualization=True, interactive=True, detach=True, eye_id=-1):
         """Calibrating eyes using the projection stack
         :param with_visualization: if True, the calibration process will be visualized
         :param interactive: if True, the calibration process will be interactive and will be retried if quality is not
                             sufficient
         :param detach: if True, the calibration process will be detached from the main process"""
         logger.debug("Starting calibration...")
-        self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach)
+        self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach, eye_id=eye_id)
         sleep(2)
 
     def start_test_stream(self, t=300):
