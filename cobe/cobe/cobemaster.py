@@ -550,7 +550,7 @@ class CoBeMaster(object):
             ys = np.arange(0, vision.display_height, 50)
 
         det_target = "feet"
-        logger.inof(f"Detecting {det_target} as default...")
+        logger.info(f"Detecting {det_target} as default...")
         log_every_n_frame = 20
         sum_inf_time = 0
         try:
@@ -565,7 +565,7 @@ class CoBeMaster(object):
                             logger.debug("Asking for inference results...")
                             # eye_dict["pyro_proxy"].get_calibration_frame()
                             req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416,
+                            detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416,
                                                                           req_ts=req_ts)
                             logger.debug("Received inference results!")
                             logger.debug(f"Detections: {detections}")
