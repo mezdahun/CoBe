@@ -325,7 +325,6 @@ class CoBeMaster(object):
         # logger.warning(f"ycam: {ycam}, y_index interpol: {y_index}")
         # logger.warning(f"xreal interpol: {xreal}, yreal interpol: {yreal}")
 
-
         x_index = np.abs(eye_dict["cmap_x_extrap"] - xcam).argmin()
         # find index of closest y value in eyes calibration map to provided ycam
         logger.debug("No interpolated value found for xcam!")
@@ -342,7 +341,6 @@ class CoBeMaster(object):
         # logger.warning(f"ycam: {ycam}, y_index extrapol: {y_index}")
         # logger.warning(f"xreal extrapol: {xreal}, yreal extrapol: {yreal}")
         # xreal, yreal = 0, 0
-
 
         # todo: remove double switching of coordinates
         xreal, yreal = yreal, xreal
@@ -537,6 +535,10 @@ class CoBeMaster(object):
             xs = np.arange(0, vision.display_width, 50)
             ys = np.arange(0, vision.display_height, 50)
 
+        det_target = "feet"
+        logger.inof(f"Detecting {det_target} as default...")
+        log_every_n_frame = 20
+        sum_inf_time = 0
         try:
             try:
                 logger.info("CoBe has been started! Press ESC long to quit.")
@@ -625,18 +627,33 @@ class CoBeMaster(object):
 
                                 # timing framerate of calibration frames
                                 end_time = datetime.now()
-                                logger.error(f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
+                                logger.debug(
+                                    f"Frame {frid} took {(end_time - start_time).total_seconds()} seconds, FR: {1 / (end_time - start_time).total_seconds()}")
+                                if frid % log_every_n_frame == 0 and frid != 0:
+                                    avg_inf_time = sum_inf_time / log_every_n_frame
+                                    logger.info(
+                                        f"Health - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                    sum_inf_time = 0
+                                else:
+                                    sum_inf_time += (end_time - start_time).total_seconds()
+
                             else:
                                 raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
                             with keyboard.Events() as events:
                                 # Block at most 0.1 second
-                                event = events.get(0.01)
+                                event = events.get(0.001)
                                 if event is None:
                                     pass
                                 elif event.key == keyboard.Key.esc:
                                     logger.info("Quitting requested by user. Exiting...")
                                     return
+                                elif event.key == keyboard.Key.up:
+                                    if det_target == "feet":
+                                        det_target = "stick"
+                                    elif det_target == "stick":
+                                        det_target = "feet"
+                                    logger.info(f"Switching detection target to {det_target}!")
 
                             # logger.info("Sleeping for 3 seconds...")
                             # time.sleep(5)
