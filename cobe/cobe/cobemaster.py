@@ -548,21 +548,22 @@ class CoBeMaster(object):
                         try:
                             # timing framerate of calibration frames
                             start_time = datetime.now()
-                            logger.info("Asking for inference results...")
+                            logger.debug("Asking for inference results...")
                             # eye_dict["pyro_proxy"].get_calibration_frame()
                             req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416, req_ts=req_ts)
-                            logger.info("Received inference results!")
-                            logger.info(detections)
+                            detections = eye_dict["pyro_proxy"].inference(confidence=35, img_width=416, img_height=416,
+                                                                          req_ts=req_ts)
+                            logger.debug("Received inference results!")
+                            logger.debug(f"Detections: {detections}")
 
                             if eye_dict.get("cmap_xmap_interp") is not None:
                                 # choosing which detections to use and what does that mean
-                                detections = filter_detections(detections)
+                                detections = filter_detections(detections, det_target=det_target)
 
                                 # generating predator positions to be sent to the simulation
                                 predator_positions = []
                                 for detection in detections:
-                                    logger.info(f"Frame in processing was requested at {detection.get('request_ts')}")
+                                    logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
                                     xcam, ycam = detection["x"], detection["y"]
 
                                     # scaling up the coordinates to the original calibration image size
@@ -599,13 +600,13 @@ class CoBeMaster(object):
                                         # scaling down the coordinates from the original calibration image size to the
                                         # simulation space
                                         extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
-                                                                    vision.interp_map_res
+                                                                   vision.interp_map_res
                                         theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
                                         centering_const = theoretical_extrap_space_size / 2
                                         xreal, yreal = xreal * (
                                                 theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
                                                        yreal * (
-                                                theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
+                                                               theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
 
                                         # matching directions in simulation space
                                         xreal, yreal = yreal, -xreal
@@ -762,7 +763,8 @@ class CoBeCalib(object):
                 eye_dict["calibration_score"] = len(corners) / (aruco.num_codes_per_row ** 2)
                 # saving annotated image
                 eye_dict["calibration_frame_annot"] = cv2.aruco.drawDetectedMarkers(eye_dict["calibration_frame"],
-                                                                                    eye_dict["detected_aruco"]["corners"],
+                                                                                    eye_dict["detected_aruco"][
+                                                                                        "corners"],
                                                                                     eye_dict["detected_aruco"]["ids"])
                 if with_visualization:
                     # show image
@@ -806,7 +808,7 @@ class CoBeCalib(object):
             num_data_points = vision.interp_map_res  # resolution of the interpolated map will be shape N x N
             skirt = 0.1  # number of pixels to add to the border of the map to avoid edge effects
 
-            #todo: cleanup
+            # todo: cleanup
             # Create grid values first.
             xi = np.linspace(min(x) - 0.1, max(x) + 0.1, num=num_data_points)
             dx = (max(x) + 0.1 - (min(x) - 0.1)) / (num_data_points - 1)
@@ -832,7 +834,6 @@ class CoBeCalib(object):
             interp_yreal = LinearNDInterpolator(list(zip(x, y)),
                                                 [aruco.aruco_id_to_proj_pos[ids[i, 0]][1] for i in range(len(ids))])
             yreal = interp_yreal(Xi, Yi)
-
 
             eye_dict["cmap_xmap_interp"] = xreal
             eye_dict["cmap_ymap_interp"] = yreal
@@ -920,7 +921,8 @@ class CoBeCalib(object):
                 plt.axes(ax[0, 2])
                 # showing extrapolated values
                 ax[0, 2].contour(xs, ys, xreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
-                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+                ax[0, 2].imshow(xreal_extra_reshaped, cmap="RdBu_r", origin='lower', vmin=np.nanmin(yreal),
+                                vmax=np.nanmax(yreal))
                 cntr1 = ax[0, 2].contourf(xs, ys, xreal_extra_reshaped, levels=50, cmap="RdBu_r",
                                           vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
 
@@ -937,7 +939,8 @@ class CoBeCalib(object):
                 plt.axes(ax[1, 2])
                 # showing extrapolated values
                 ax[1, 2].contour(xs, ys, yreal_extra_reshaped, levels=50, linewidths=0.5, colors='k', origin='lower')
-                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower',vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
+                ax[1, 2].imshow(yreal_extra_reshaped, cmap="RdBu_r", origin='lower', vmin=np.nanmin(yreal),
+                                vmax=np.nanmax(yreal))
                 cntr1 = ax[1, 2].contourf(xs, ys, yreal_extra_reshaped, levels=50, cmap="RdBu_r",
                                           vmin=np.nanmin(yreal), vmax=np.nanmax(yreal))
                 # showing interpolated values for double check
@@ -954,7 +957,8 @@ class CoBeCalib(object):
 
                 x_real_nonans = xreal
                 x_real_nonans[np.isnan(xreal)] = 0
-                error = xreal_extra_reshaped[ext_num_points:-ext_num_points, ext_num_points:-ext_num_points] - x_real_nonans
+                error = xreal_extra_reshaped[ext_num_points:-ext_num_points,
+                        ext_num_points:-ext_num_points] - x_real_nonans
 
                 # show extrapolated x coordinates
                 plt.axes(ax[0, 3])
@@ -969,7 +973,7 @@ class CoBeCalib(object):
                 plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
                 plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
 
-                #todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
+                # todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
                 # polation when interpolation is not available.
 
                 # using tight layout
