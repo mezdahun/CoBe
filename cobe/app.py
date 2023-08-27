@@ -42,10 +42,22 @@ def collect_pngs(eye_id=0):
     master.collect_images_from_stream(target_eye_name=eye_name)
 
 
+def main(eye_id=0):
+    args = argparse.ArgumentParser(description="Starts the the whole stack using a single eye.")
 
-def main():
+    # adding optional arguments
+    aid = args.add_argument("--eye_id", default=None, help="ID (int) of the eye (nano board) to start eyeserver on as in"
+                                                           "settings.network")
+    args = args.parse_args()
+    if args.eye_id is not None:
+        eye_ids = [eye['expected_id'] for eye in network.eyes.values()]
+        eye_id = int(args.eye_id)
+        if eye_id not in eye_ids:
+            raise ValueError(f"Eye ID {eye_id} not found in settings.network")
+        eye_name = f"eye_{eye_id}"
+
     master = CoBeMaster()
-    master.start()
+    master.start(target_eye_name=eye_name)
 
 
 def main_kalman():
