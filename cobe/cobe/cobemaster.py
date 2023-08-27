@@ -180,11 +180,13 @@ class CoBeMaster(object):
         :param eye_id: id of eye to be calibrated. if -1 all of them will be claibrated 1-by-1"""
 
         if eye_id == -1:
+            retry = [True for i in range(len(self.eyes))]
             eyes_to_calib = [i for i in range(len(self.eyes))]
         else:
+            retry = [False for i in range(len(self.eyes))]
             eyes_to_calib = [eye_id]
+            retry[eye_id] = True
         logger.info(f"Eyes with ID {eyes_to_calib} will be calibrated.")
-        retry = [True for i in range(len(eyes_to_calib))]
 
         for eye_name, eye_dict in self.eyes.items():
             eye_i = int(eye_name.split('_')[-1])
@@ -204,13 +206,14 @@ class CoBeMaster(object):
                         logger.error("Trying to continue without projecting calibration image.")
 
                     while retry[eye_i]:
+                        eyes_in_calib = {eye_name: eye_dict}
                         # get a single calibration image from every eye object
                         logger.debug("Fetching calibration images from eyes...")
-                        self.calibrator.fetch_calibration_frames(self.eyes)
+                        self.calibrator.fetch_calibration_frames(eyes_in_calib)
 
                         # detect the aruco marker mesh on the calibration images and save data in eye dicts
                         logger.debug("Detecting ARUCO codes...")
-                        self.calibrator.detect_ARUCO_codes(self.eyes)
+                        self.calibrator.detect_ARUCO_codes(eyes_in_calib)
 
                         # calculate the calibration maps for each eye and store them in the eye dict
                         logger.debug("Calculating calibration maps...")
@@ -223,8 +226,10 @@ class CoBeMaster(object):
                             else:
                                 logger.info(f"Calibration results accepted by user for {eye_name}.")
                                 retry[eye_i] = False
+                                self.eyes[eye_name] = eyes_in_calib[eye_name]
                         else:
                             retry[eye_i] = False
+                            self.eyes[eye_name] = eyes_in_calib[eye_name]
 
                 if is_pattern_projected:
                     logger.debug("Removing calibration image from projectors...")
@@ -233,41 +238,47 @@ class CoBeMaster(object):
             else:
                 logger.info(f"Skipping calibration for {eye_name} according to calibration agruments.")
 
-        self.save_calibration_maps()
+        self.save_calibration_maps(eye_id=eye_id)
         if with_visualization:
             # closing all matplotlib windows after calibration
             plt.close("all")
 
         logger.info("Calibration maps calculated and saved.")
 
-    def save_calibration_maps(self):
+    def save_calibration_maps(self, eye_id=-1):
         """Saves the calibration maps and eye settings for each eye's predefined json file"""
 
         if not os.path.isdir(self.calib_data_dir):
             logger.info(f"Creating calibration data directory at {self.calib_data_dir} as it does not exist.")
             os.makedirs(self.calib_data_dir, exist_ok=True)
 
+        if eye_id == -1:
+            eye_names = self.eyes.keys()
+        else:
+            eye_names = [f"eye_{eye_id}"]
+
         for eye_name, eye_dict in self.eyes.items():
-            # creating file path
-            file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
-            eye_dict_to_save = eye_dict.copy()
+            if eye_name in eye_names:
+                # creating file path
+                file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
+                eye_dict_to_save = eye_dict.copy()
 
-            # deleting pyro proxy and detected aruco code from dict as they are not serializable
-            del eye_dict_to_save["pyro_proxy"]
-            if eye_dict_to_save.get("detected_aruco"):
-                del eye_dict_to_save["detected_aruco"]
+                # deleting pyro proxy and detected aruco code from dict as they are not serializable
+                del eye_dict_to_save["pyro_proxy"]
+                if eye_dict_to_save.get("detected_aruco"):
+                    del eye_dict_to_save["detected_aruco"]
 
-            # jsonifying dictionary
-            for k, v in eye_dict_to_save.items():
-                if isinstance(v, np.ndarray):
-                    eye_dict_to_save[k] = v.tolist()
+                # jsonifying dictionary
+                for k, v in eye_dict_to_save.items():
+                    if isinstance(v, np.ndarray):
+                        eye_dict_to_save[k] = v.tolist()
 
-            # saving json file
-            with open(file_path, "w") as f:
-                json.dump(eye_dict_to_save, f)
-            logger.info(f"Calibration map for {eye_name} saved to {file_path}.")
+                # saving json file
+                with open(file_path, "w") as f:
+                    json.dump(eye_dict_to_save, f)
+                logger.info(f"Calibration map for {eye_name} saved to {file_path}.")
 
-    def load_calibration_map(self, eye_name, eye_dict):
+    def load_calibration_map(self, eye_name, eye_dict, force_load=False):
         """Loads the calibration maps and eye settings for each eye from json files
         :param eye_name: name of the eye
         :param eye_dict: dictionary containing the eye data
@@ -275,8 +286,11 @@ class CoBeMaster(object):
         # creating file path
         file_path = os.path.join(self.calib_data_dir, f"{eye_name}_calibdata.json")
         if os.path.isfile(file_path):
-            load_map_input = input(
-                f"Calibration map for {eye_name} found in {file_path}. Do you want to load it? (Y/n)")
+            if not force_load:
+                load_map_input = input(
+                    f"Calibration map for {eye_name} found in {file_path}. Do you want to load it? (Y/n)")
+            else:
+                load_map_input = "y"
             if load_map_input.lower() == "y":
                 logger.info(f"Loading calibration map for {eye_name} from {file_path}")
                 with open(file_path, "r") as f:
