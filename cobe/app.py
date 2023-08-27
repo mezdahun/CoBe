@@ -23,10 +23,24 @@ def test_stream():
     master.start_test_stream()
 
 
-def collect_pngs():
+def collect_pngs(eye_id=0):
     """Collects pngs from all eyes"""
+    args = argparse.ArgumentParser(description="Starts raw video stream and collects pngs from all or only selected eyes")
+
+    # adding optional arguments
+    aid = args.add_argument("--eye_id", default=None, help="ID (int) of the eye (nano board) to start stream on accordin to"
+                                                           "settings.network")
+    args = args.parse_args()
+    if args.eye_id is not None:
+        eye_ids = [eye['expected_id'] for eye in network.eyes.values()]
+        eye_id = int(args.eye_id)
+        if eye_id not in eye_ids:
+            raise ValueError(f"Eye ID {eye_id} not found in settings.network")
+        eye_name = f"eye_{eye_id}"
+
     master = CoBeMaster()
-    master.collect_images_from_stream()
+    master.collect_images_from_stream(target_eye_name=eye_name)
+
 
 
 def main():
