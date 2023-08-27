@@ -28,7 +28,7 @@ from Pyro5.server import Daemon
 from roboflow.models.object_detection import ObjectDetectionModel
 from cobe.tools.iptools import get_local_ip_address
 from cobe.tools.detectiontools import annotate_detections
-from cobe.settings import vision, odmodel
+from cobe.settings import vision, odmodel, network
 from cobe.vision import web_vision
 
 
@@ -102,6 +102,8 @@ class CoBeEye(object):
         # other setting files distributed before
         # ID of the Nano module
         self.id = os.getenv("EYE_ID", 0)
+        self.eye_name = "eye_" + str(self.id)
+        self.eye_params = network.eyes[self.eye_name]
         # Version of the nano
         self.version = vision.eye_version
         logger.info(f"Initializing CoBeEye with ID {self.id} and board version {self.version}")
@@ -114,7 +116,18 @@ class CoBeEye(object):
         self.inference_server_id = None
 
         # Starting cv2 capture stream from camera
-        self.cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)
+        end_x = min(self.eye_params["start_x"] + self.eye_params["crop_width"], vision.capture_width)  # end cropping at this x coordinate
+        end_y = min(self.eye_params["start_y"] + self.eye_params["crop_height"], vision.capture_height)  # end cropping at this y coordinate
+        self.cap = cv2.VideoCapture(gstreamer_pipeline(capture_width=vision.capture_width,
+                                                       capture_height=vision.capture_height,
+                                                       start_x=self.eye_params["start_x"],
+                                                       start_y=self.eye_params["start_y"],
+                                                       end_x=end_x,
+                                                       end_y=end_y,
+                                                       display_width=vision.display_width,
+                                                       display_height=vision.display_height,
+                                                       framerate=vision.frame_rate,
+                                                       flip_method=vision.flip_method), cv2.CAP_GSTREAMER)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         # Opening fisheye unwarping calibration maps
