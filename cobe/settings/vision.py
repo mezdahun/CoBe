@@ -11,13 +11,13 @@ eye_version = "ORIN"  # "ORIN" or "JETSON"
 flip_method = os.getenv("FLIP_METHOD", 2)
 capture_width = os.getenv("CAPTURE_WIDTH", 3264)
 capture_height = os.getenv("CAPTURE_HEIGHT", 2464)
-start_x = os.getenv("START_X", 0)  # start cropping from this x coordinate for display_width length  345
-start_y = os.getenv("START_Y", 0)  # start cropping from this y coordinate for display_height length  40
-crop_width = os.getenv("CROP_WIDTH", 3264)  # crop the image to this width  2500
-crop_height = os.getenv("CROP_HEIGHT", 2464)  # crop the image to this height  2500
+start_x = os.getenv("START_X", 623)  # start cropping from this x coordinate for display_width length  345
+start_y = os.getenv("START_Y", 200)  # start cropping from this y coordinate for display_height length  40
+crop_width = os.getenv("CROP_WIDTH", 1500)  # crop the image to this width  2500
+crop_height = os.getenv("CROP_HEIGHT", 1500)  # crop the image to this height  2500
 
-display_width = os.getenv("DISPLAY_WIDTH", 1632)  # fisheye calibration maps should be adjusted to this resolution 416
-display_height = os.getenv("DISPLAY_HEIGHT", 1234)  # fisheye calibration maps should be adjusted to this resolution 416
+display_width = os.getenv("DISPLAY_WIDTH", 416)  # fisheye calibration maps should be adjusted to this resolution 416
+display_height = os.getenv("DISPLAY_HEIGHT", 416)  # fisheye calibration maps should be adjusted to this resolution 416
 
 end_x = min(start_x + crop_width, capture_width)  # end cropping at this x coordinate
 end_y = min(start_y + crop_height, capture_height)  # end cropping at this y coordinate
