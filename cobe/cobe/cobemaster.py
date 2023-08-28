@@ -196,13 +196,13 @@ class CoBeMaster(object):
         :param eye_id: id of eye to be calibrated. if -1 all of them will be claibrated 1-by-1"""
 
         if eye_id == -1:
-            retry = [True for i in range(len(self.eyes))]
             eyes_to_calib = [i for i in range(len(self.eyes))]
         else:
-            retry = [False for i in range(len(self.eyes))]
             eyes_to_calib = [eye_id]
-            retry[eye_id] = True
+
         logger.info(f"Eyes with ID {eyes_to_calib} will be calibrated.")
+        retry = {eye_name: True for eye_name in self.eyes.keys()}
+
 
         for eye_name, eye_dict in self.eyes.items():
             eye_i = int(eye_name.split('_')[-1])
@@ -221,7 +221,7 @@ class CoBeMaster(object):
                         logger.error(f"Exception while projecting calibration image: {e}")
                         logger.error("Trying to continue without projecting calibration image.")
 
-                    while retry[eye_i]:
+                    while retry[eye_name]:
                         eyes_in_calib = {eye_name: eye_dict}
                         # get a single calibration image from every eye object
                         logger.debug("Fetching calibration images from eyes...")
@@ -238,13 +238,13 @@ class CoBeMaster(object):
                         if interactive:
                             retry_input = input("Press r to retry calibration, or enter to continue...")
                             if retry_input == "r":
-                                retry[eye_i] = True
+                                retry[eye_name] = True
                             else:
                                 logger.info(f"Calibration results accepted by user for {eye_name}.")
-                                retry[eye_i] = False
+                                retry[eye_name] = False
                                 self.eyes[eye_name] = eyes_in_calib[eye_name]
                         else:
-                            retry[eye_i] = False
+                            retry[eye_name] = False
                             self.eyes[eye_name] = eyes_in_calib[eye_name]
 
                 if is_pattern_projected:
