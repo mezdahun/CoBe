@@ -8,8 +8,8 @@
         "fisheye_calibration_map": "map_eye_0.npz",
         "start_x": 0,
         "start_y": 0,
-        "crop_width": 500,
-        "crop_height": 500
+        "crop_width": 10000,
+        "crop_height": 10000
     },
     "eye_1": {
         "expected_id": 1,
