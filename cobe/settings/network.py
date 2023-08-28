@@ -1,32 +1,13 @@
 """
 parameters for the Pyro5 local network
 """
+import os
+import json
+
 nano_username = "nano"
 nano_cobe_installdir = "/home/nano/Desktop/CoBe"
 unified_eyeserver_port = 1234
 
-eyes = {
-    "eye_0": {
-        "expected_id": 0,
-        "host": "192.168.0.103",
-        "port": f"{unified_eyeserver_port}",
-        "uri": "PYRO:",
-        "name": "cobe.eye",
-        "fisheye_calibration_map": "map_eye_0.npz",
-        "start_x": 0,
-        "start_y": 0,
-        "crop_width": 10000,
-        "crop_height": 10000},
-    "eye_1": {
-        "expected_id": 1,
-        "host": "192.168.0.101",
-        "port": f"{unified_eyeserver_port}",
-        "uri": "PYRO:",
-        "name": "cobe.eye",
-        "fisheye_calibration_map": "map_eye_1.npz",
-        "start_x": 1000,  #923
-        "start_y": 600,  #600
-        "crop_width": 1200,  #1500
-        "crop_height": 1200  #1500
-    }
-}
+# reading eye_dicts.json from the directory of this file to fill eye_dictiornary
+with open(os.path.join(os.path.dirname(__file__), "eye_dicts.json"), "r") as f:
+    eyes = json.load(f)
