@@ -15,8 +15,8 @@ eyes = {
         "fisheye_calibration_map": "map_eye_0.npz",
         "start_x": 0,
         "start_y": 0,
-        "crop_width": 3264,
-        "crop_height": 2464},
+        "crop_width": 10000,
+        "crop_height": 10000},
     "eye_1": {
         "expected_id": 1,
         "host": "192.168.0.101",
