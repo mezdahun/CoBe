@@ -13,7 +13,7 @@ eyes = {
         "uri": "PYRO:",
         "name": "cobe.eye",
         "fisheye_calibration_map": "map_eye_0.npz",
-        "start_x": 545,
+        "start_x": 100,
         "start_y": 40,
         "crop_width": 2500,
         "crop_height": 2500},
