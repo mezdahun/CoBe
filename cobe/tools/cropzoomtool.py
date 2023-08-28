@@ -16,18 +16,18 @@ end_x, end_y = None, None
 def update_settings(start_x, start_y, end_x, end_y):
     print("Updating network settings...")
     # get upper right corner of crop
-    crop_width = end_x - start_x
-    crop_height = end_y - start_y
+    crop_width = abs(end_x - start_x)
+    crop_height = abs(end_y - start_y)
 
-    upper_right_x = end_x
-    upper_right_y = start_y
+    lower_right_x = max(start_x, end_x)
+    lower_right_y = max(start_y, end_y)
 
     img_width = image.shape[1]
     img_height = image.shape[0]
 
-    # start_x will count from right to left
-    start_x = img_width - upper_right_x
-    start_y = upper_right_y
+    # start_x will count from right to left, start_y will count from bottom to top
+    start_x = img_width - lower_right_x
+    start_y = img_height - lower_right_y
     print(f"start_x: {start_x}, start_y: {start_y}, crop_width: {crop_width}, crop_height: {crop_height}")
 
     # write settings back to json file
