@@ -94,9 +94,10 @@ def filter_detections(detections, det_target="feet"):
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
 
-    def __init__(self, pswd=None):
+    def __init__(self, pswd=None, target_eye_name=None):
         """Constructor for CoBeMaster"""
         # eyes of the network
+        self.target_eye_name = target_eye_name
         self.eyes = self.create_eye_objects()
         # create calibration object for the run
         self.calibrator = CoBeCalib()
@@ -133,13 +134,26 @@ class CoBeMaster(object):
         """Creates eye Pyro objects from the network settings"""
         eyes = {}
         for eye_name, eye_data in network.eyes.items():
-            eyes[eye_name] = {"pyro_proxy": Proxy(
-                eye_data["uri"] + eye_data["name"] + "@" + eye_data["host"] + ":" + eye_data["port"])}
-            eyes[eye_name]["eye_data"] = eye_data
-            # adding fisheye calibration map for eye
-            eyes[eye_name]["pyro_proxy"].set_fisheye_calibration_map(eye_data["fisheye_calibration_map"])
-            # testing created eye by accessing public Pyro method and comparing outcome with expected ID
-            assert int(eyes[eye_name]["pyro_proxy"].return_id()) == int(eyes[eye_name]["eye_data"]["expected_id"])
+            if self.target_eye_name is not None and eye_name != self.target_eye_name:
+                logger.info(f"Skipping eye {eye_name} during creating CoBeMaster class because it is not the target eye.")
+                continue
+            try:
+                eyes[eye_name] = {"pyro_proxy": Proxy(
+                    eye_data["uri"] + eye_data["name"] + "@" + eye_data["host"] + ":" + eye_data["port"])}
+                eyes[eye_name]["eye_data"] = eye_data
+                # # adding fisheye calibration map for eye
+                eyes[eye_name]["pyro_proxy"].set_fisheye_calibration_map(eye_data["fisheye_calibration_map"])
+                # testing created eye by accessing public Pyro method and comparing outcome with expected ID
+                assert int(eyes[eye_name]["pyro_proxy"].return_id()) == int(eyes[eye_name]["eye_data"]["expected_id"])
+                logger.debug(f"Eye {eye_name} created successfully in CoBeMaster instance.")
+            except Exception as e:
+                logger.warning(f"Error creating eye {eye_name}: {e}")
+                logger.warning(f"This can because of a wrong URI or the eye not being on or the eyeserver not running. "
+                               f"Proceeding now without this eye: {eye_name}")
+                logger.warning(f"If this is not intended please debug according to the wiki! All eyes should be on,"
+                               f"reachable via ssh (connected to local network) with URIs set in the network settings,"
+                               f"and all has to have a running Pyro5 eyeserver.")
+                del eyes[eye_name]
         return eyes
 
     def initialize_object_detectors(self, target_eye_name=None):
