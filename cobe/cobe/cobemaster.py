@@ -149,9 +149,10 @@ class CoBeMaster(object):
                 logger.debug(f"Eye {eye_name} created successfully in CoBeMaster instance.")
             except Exception as e:
                 logger.warning(f"Error creating eye {eye_name}: {e}")
-                logger.warning(f"This can because of a wrong URI or the eye not being on or the eyeserver not running. "
+                logger.warning(f"This can happen because of a wrong URI or the eye not being on or the eyeserver not "
+                               f"running."
                                f"Proceeding now without this eye: {eye_name}")
-                logger.warning(f"If this is not intended please debug according to the wiki! All eyes should be on,"
+                logger.warning(f"If this is not intended please debug according to the wiki! All eyes should be turned on,"
                                f"reachable via ssh (connected to local network) with URIs set in the network settings,"
                                f"and all has to have a running Pyro5 eyeserver.")
                 del eyes[eye_name]
