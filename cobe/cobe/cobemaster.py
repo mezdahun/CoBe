@@ -30,6 +30,7 @@ from cobe.settings.pmodulesettings import max_abs_coord
 from cobe.settings import network, odmodel, aruco, vision, logs
 from cobe.rendering.renderingstack import RenderingStack
 from cobe.pmodule.pmodule import generate_pred_json
+from cobe.tools import cropzoomtool
 
 # Setting up file logger
 import logging
@@ -526,6 +527,10 @@ class CoBeMaster(object):
                             ret, frame = cap.read()
                             cv2.imwrite(os.path.join(save_path, f"{eye_name}_{it}.png"), frame)
                             logger.info(f"Saved image {eye_name}_{it}.png")
+                        elif event.key == keyboard.Key.down:
+                            cap = cv2.VideoCapture(f'http://{eye_dict["eye_data"]["host"]}:8000/calibration.mjpg')
+                            ret, frame = cap.read()
+                            cropzoomtool.cropzoomparameters(eye_name, frame)
                         elif event.key == keyboard.Key.up:
                             if auto_on and (datetime.now() - switch_time).total_seconds() > 1:
                                 auto_on = False
