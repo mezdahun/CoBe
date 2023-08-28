@@ -58,9 +58,10 @@ def main(eye_id=0):
         eye_id = int(args.eye_id)
         if eye_id not in eye_ids:
             raise ValueError(f"Eye ID {eye_id} not found in settings.network")
-        eye_name = f"eye_{eye_id}"
 
-    master = CoBeMaster()
+    eye_name = f"eye_{eye_id}"
+
+    master = CoBeMaster(target_eye_name=eye_name)
     master.start(target_eye_name=eye_name)
 
 
@@ -270,8 +271,12 @@ def calibrate(eye_id=-1, on_screen=False):
     if args.on_screen is not None:
         on_screen = bool(args.on_screen)
 
+    if eye_id == -1:
+        master_target_eye_name = None
+    else:
+        master_target_eye_name = f"eye_{eye_id}"
 
-    master = CoBeMaster()
+    master = CoBeMaster(target_eye_name=master_target_eye_name)
     if on_screen:
         # generaating calibration image on screen if requested
         master.calibrator.generate_calibration_image(detach=True)
