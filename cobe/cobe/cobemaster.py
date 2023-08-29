@@ -243,6 +243,9 @@ class CoBeMaster(object):
                                 logger.info(f"Calibration results accepted by user for {eye_name}.")
                                 retry[eye_name] = False
                                 self.eyes[eye_name] = eyes_in_calib[eye_name]
+                            if with_visualization:
+                                # closing all matplotlib windows after calibration
+                                plt.close("all")
                         else:
                             retry[eye_name] = False
                             self.eyes[eye_name] = eyes_in_calib[eye_name]
@@ -495,8 +498,12 @@ class CoBeMaster(object):
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
 
-        logger.info(f"Starting to collect images from eye {target_eye_name}...\nPress s to save image, ESC to quit, "
-                    f"SPACE to save image and UP to turn on/off autocapture")
+        logger.info(f"Starting to collect images from eye {target_eye_name}...\n"
+                    f"Press: \n"
+                    f"--ESC \t\tto quit,\n"
+                    f"--SPACE \tto save image to {save_path},\n"
+                    f"--UP \t\tarrow to turn on/off autocapture in every {auto_freq} seconds\n"
+                    f"--DOWN \t\tarrow to start setting Crop/Zoom of camera")
         for it in range(t_max):
             for eye_name, eye_dict in self.eyes.items():
                 if eye_name == target_eye_name:
@@ -606,7 +613,7 @@ class CoBeMaster(object):
         sum_inf_time = 0
         try:
             try:
-                logger.info("CoBe has been started! Press ESC long to quit.")
+                logger.info("CoBe has been started! Press ENTER long to quit.")
                 for frid in range(t_max):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
@@ -682,10 +689,10 @@ class CoBeMaster(object):
                                             # todo: simplify this by merging the 2 scaling commandscobe-pm
 
                                             predator_positions.append([xreal, yreal])
-                                            logger.info(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
+                                            logger.debug(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
 
                                         else:
-                                            logger.info(f"No predator detected on eye {eye_name}")
+                                            logger.debug(f"No predator detected on eye {eye_name}")
 
                                     # generating predator position
                                     if len(predator_positions) > 0:
@@ -701,7 +708,7 @@ class CoBeMaster(object):
                                     if frid % log_every_n_frame == 0 and frid != 0:
                                         avg_inf_time = sum_inf_time / log_every_n_frame
                                         logger.info(
-                                            f"Health - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                            f"Health - {eye_name} - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
                                         sum_inf_time = 0
                                     else:
                                         sum_inf_time += (end_time - start_time).total_seconds()
@@ -709,20 +716,21 @@ class CoBeMaster(object):
                                 else:
                                     raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
 
-                                with keyboard.Events() as events:
-                                    # Block at most 0.1 second
-                                    event = events.get(0.001)
-                                    if event is None:
-                                        pass
-                                    elif event.key == keyboard.Key.esc:
-                                        logger.info("Quitting requested by user. Exiting...")
-                                        return
-                                    elif event.key == keyboard.Key.up:
-                                        if det_target == "feet":
-                                            det_target = "stick"
-                                        elif det_target == "stick":
-                                            det_target = "feet"
-                                        logger.info(f"Switching detection target to {det_target}!")
+                                if not no_calib:
+                                    with keyboard.Events() as events:
+                                        # Block at most 0.1 second
+                                        event = events.get(0.001)
+                                        if event is None:
+                                            pass
+                                        elif event.key == keyboard.Key.enter:
+                                            logger.info("Quitting requested by user. Exiting...")
+                                            return
+                                        elif event.key == keyboard.Key.up:
+                                            if det_target == "feet":
+                                                det_target = "stick"
+                                            elif det_target == "stick":
+                                                det_target = "feet"
+                                            logger.info(f"Switching detection target to {det_target}!")
 
                                 # logger.info("Sleeping for 3 seconds...")
                                 # time.sleep(5)
@@ -742,7 +750,7 @@ class CoBeMaster(object):
                 logger.error(e)
 
         except KeyboardInterrupt:
-            logger.error("Interrupt requested by user. Exiting... (For normal business press 'ESC' long to quit!)")
+            logger.error("Interrupt requested by user. Exiting... (For normal business press 'ENTER' long to quit!)")
 
         # todo: decide on cleaning up inference servers here or in the cleanup function
 
@@ -934,7 +942,7 @@ class CoBeCalib(object):
 
             if with_visualization:
                 # Visualization
-                fig, ax = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True)
+                fig, ax = plt.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
 
                 # Show image with detections
                 plt.axes(ax[0, 0])
@@ -1028,18 +1036,18 @@ class CoBeCalib(object):
                 error = xreal_extra_reshaped[ext_num_points:-ext_num_points,
                         ext_num_points:-ext_num_points] - x_real_nonans
 
-                # show extrapolated x coordinates
-                plt.axes(ax[0, 3])
-                # showing extrapolated values
-                ax[0, 3].imshow(error, cmap="RdBu_r", origin='lower')
-                ax[0, 3].plot(x, y, 'ko', ms=3)
-                plt.xlabel("camera x")
-                plt.ylabel("camera y")
-                plt.title("Extrapolation error (x)")
-                # keep aspect ratio original
-                plt.axis('scaled')
-                plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
-                plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
+                # # show extrapolated x coordinates
+                # plt.axes(ax[0, 3])
+                # # showing extrapolated values
+                # ax[0, 3].imshow(error, cmap="RdBu_r", origin='lower')
+                # ax[0, 3].plot(x, y, 'ko', ms=3)
+                # plt.xlabel("camera x")
+                # plt.ylabel("camera y")
+                # plt.title("Extrapolation error (x)")
+                # # keep aspect ratio original
+                # plt.axis('scaled')
+                # plt.xlim(0, eye_dict["calibration_frame_annot"].shape[1])
+                # plt.ylim(eye_dict["calibration_frame_annot"].shape[0], 0)
 
                 # todo: show extrapolation error, possibly replace inner values to interpolated ones and only use extra
                 # polation when interpolation is not available.
@@ -1115,3 +1123,17 @@ class CoBeCalib(object):
         else:
             logger.debug("Returning calibration image")
             return calibration_image
+
+
+def file_writer_process(input_queue):
+    from queue import Empty
+    while True:
+        # try to get element from queue
+        try:
+            while input_queue.qsize() > 1:
+                input_queue.get_nowait()
+            od_element = input_queue.get_nowait()
+            (tcap_str, tpush, pred_positions) = od_element
+            generate_pred_json(pred_positions)
+        except Empty:
+            pass
