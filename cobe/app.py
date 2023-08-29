@@ -1,7 +1,7 @@
 import argparse
 import time
 
-from cobe.cobe.cobemaster import CoBeMaster
+from cobe.cobe.cobemaster import CoBeMaster, file_writer_process
 from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
 from cobe.settings import network
@@ -79,25 +79,34 @@ def main_kalman():
     kalman_process.terminate()
     kalman_process.join()
 
-def main_multieye():
-    pswd = input("Provide master password:")
+
+def main_multieye_kalman():
+    logger.info("Starting CoBe with multi-eye mode WITH Kalman-filtering.")
+    pswd = getpass("Provide master password:")
     # Creating common queue to push detections
     pred_queue = Queue()
     # Creating kalman process to run in different thread
     kalman_process = Process(target=kalman_process_OD, args=(pred_queue, None,))
+
     # Creating process to run different eyes in different threads
     master = CoBeMaster(pswd=pswd)
+
+    # Creating detection processes for all eyes
     eye_processes = []
     for eye_name in network.eyes.keys():
         logger.info(f"Starting eye {eye_name}")
-        eye_process = Process(target=master.start, args=(False, eye_name, 10000, pred_queue, True, "stick",))
+        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, "stick",))
         eye_processes.append(eye_process)
+
     # Starting eye processes
     kalman_process.start()
     for eye_process in eye_processes:
         eye_process.start()
         time.sleep(0.05)
-    input("Waiting to stop...")
+
+    input("Press ENTER to stop...")
+    logger.info("Stopping CoBe...")
+
     # Terminating and joining eye processes
     for eye_process in eye_processes:
         try:
@@ -105,11 +114,51 @@ def main_multieye():
             eye_process.join()
         except Exception as e:
             logger.error(f"Error terminating eye process: {e}")
+
     # Terminating and joining kalman process
     kalman_process.terminate()
     kalman_process.join()
+    logger.info("CoBe stopped. Bye!")
 
+def main_multieye():
+    logger.info("Starting CoBe with multi-eye mode (no Kalman-filtering).")
+    pswd = getpass("Provide master password:")
+    # Creating common queue to push detections
+    pred_queue = Queue()
+    # Creating kalman process to run in different thread
+    kalman_process = Process(target=file_writer_process, args=(pred_queue, ))
 
+    # Creating process to run different eyes in different threads
+    master = CoBeMaster(pswd=pswd)
+
+    # Creating detection processes for all eyes
+    eye_processes = []
+    for eye_name in network.eyes.keys():
+        logger.info(f"Starting eye {eye_name}")
+        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, "stick",))
+        eye_processes.append(eye_process)
+
+    # Starting eye processes
+    kalman_process.start()
+    for eye_process in eye_processes:
+        eye_process.start()
+        time.sleep(0.05)
+
+    input("Press ENTER to stop...")
+    logger.info("Stopping CoBe...")
+
+    # Terminating and joining eye processes
+    for eye_process in eye_processes:
+        try:
+            eye_process.terminate()
+            eye_process.join()
+        except Exception as e:
+            logger.error(f"Error terminating eye process: {e}")
+
+    # Terminating and joining kalman process
+    kalman_process.terminate()
+    kalman_process.join()
+    logger.info("CoBe stopped. Bye!")
 
 
 def cleanup_inf_servers():
@@ -160,11 +209,31 @@ def start_eyeserver(eye_id=None):
     config = Config(overrides={'sudo': {'password': PSWD}})
     eyes = Group(*eye_ips, user=network.nano_username, config=config)
     logger.info(f"Starting eyeservers on {eye_ips}")
+    # f any eyes fail to startup we will delete them from the list and ask the user if he wants to proceed
+    eyes_to_delete = []
     for ci, c in enumerate(eyes):
         c.connect_kwargs.password = PSWD
 
         # checking for already running eyeserver instances
-        start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+        try:
+            start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+        except Exception as e:
+            logger.error(f"Error while checking for eyeserver on host {c.host}: {e}\n"
+                         f"This can be caused by the nvidia board not being turned on, not being properly\n"
+                         f"connected to the local network or having a wrong IP in cobe.settings.network.")
+
+            if ci < len(eyes) - 1:
+                proceed = input("Do you want to proceed with the next eye? (y/n): ").lower() == "y"
+            else:
+                proceed = True
+
+            if proceed:
+                eyes_to_delete.append(c)
+                continue
+            else:
+                logger.info("Exiting...")
+                return
+
         num_found_procs = len(start_result.stdout.split("\n"))
         PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
         found_eye_servers = num_found_procs > 3
@@ -199,30 +268,37 @@ def start_eyeserver(eye_id=None):
             logger.info(f'Started eyeserver on host {c.host}')
         time.sleep(5)
 
-    getpass('Eye servers started. Press any key to stop the eye servers...')
+    # deleting eyes that failed to start
+    for c in eyes_to_delete:
+        logger.info(f"Deleting eye {c.host} from list of eyes as it failed to start...")
+        eyes.remove(c)
 
-    logger.info('Killing eye-server processes by collected PIDs...')
-    for c in eyes:
-        logger.info(f'Stopping eyeserver on host {c.host}')
-        c.connect_kwargs.password = PSWD
-        start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
-        PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
-        logger.info(f"Found server process with PID: {PID}, killing it...")
-        # sending INT SIG to the main process will trigger graceful exit (equivalent to KeyboardInterrup)
-        c.run(f'kill -INT -{int(PID)}')
-        logger.info(f"Killed eyeserver on host {c.host}")
-    time.sleep(5)
+    if len(eyes) > 0:
+        getpass(f'Eye servers started on {[c.host for c in eyes]}. Press any key to stop the eye servers...')
 
-    # Shutting down the physical nvidia boards if requested
-    is_shutdown = input("Do you want to shutdown the eyes? (y/n): ")
-    if is_shutdown.lower() == "y":
-        logger.info("Shutting down eyes...")
+        logger.info('Killing eye-server processes by collected PIDs...')
         for c in eyes:
+            logger.info(f'Stopping eyeserver on host {c.host}')
             c.connect_kwargs.password = PSWD
-            c.sudo(f'shutdown -h now', warn=True, shell=False)
-            logger.info(f"Shutting down host {c.host}")
-        logger.info("Shutdown complete.")
+            start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+            PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+            logger.info(f"Found server process with PID: {PID}, killing it...")
+            # sending INT SIG to the main process will trigger graceful exit (equivalent to KeyboardInterrup)
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed eyeserver on host {c.host}")
+        time.sleep(5)
 
+        # Shutting down the physical nvidia boards if requested
+        is_shutdown = input("Do you want to shutdown the eyes? (y/n): ")
+        if is_shutdown.lower() == "y":
+            logger.info("Shutting down eyes...")
+            for c in eyes:
+                c.connect_kwargs.password = PSWD
+                c.sudo(f'shutdown -h now', warn=True, shell=False)
+                logger.info(f"Shutting down host {c.host}")
+            logger.info("Shutdown complete.")
+    else:
+        logger.info("No eyeservers started, exiting...")
 
 def stop_eyeserver():
     """Stops the pyro eyeserver on the eyes defined by settins.network via fabric. Can be used when
