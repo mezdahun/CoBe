@@ -617,7 +617,9 @@ class CoBeMaster(object):
                                 logger.debug(f"Asking for inference results from eye {eye_name}...")
                                 # eye_dict["pyro_proxy"].get_calibration_frame()
                                 req_ts = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S.%f")
-                                detections = eye_dict["pyro_proxy"].inference(confidence=25, img_width=416, img_height=416,
+                                detections = eye_dict["pyro_proxy"].inference(confidence=vision.inf_confidence,
+                                                                              img_width=vision.display_width,
+                                                                              img_height=vision.display_height,
                                                                               req_ts=req_ts)
                                 logger.debug("Received inference results!")
                                 logger.debug(f"Detections: {detections}")

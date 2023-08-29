@@ -33,3 +33,6 @@ interp_map_res = os.getenv("INTERP_MAP_RES", 500)
 # number of points to use for extrapolation on sides of map
 extrap_skirt = 50
 
+### Inference settings ###
+inf_confidence = 25  # confidence threshold for inference
+
