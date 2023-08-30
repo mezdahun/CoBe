@@ -6,10 +6,10 @@
         "uri": "PYRO:",
         "name": "cobe.eye",
         "fisheye_calibration_map": "map_eye_0.npz",
-        "start_x": 254,
-        "start_y": 150,
-        "crop_width": 2136,
-        "crop_height": 2136
+        "start_x": 0,
+        "start_y": 0,
+        "crop_width": 5000,
+        "crop_height": 5000
     },
     "eye_1": {
         "expected_id": 1,
@@ -18,9 +18,9 @@
         "uri": "PYRO:",
         "name": "cobe.eye",
         "fisheye_calibration_map": "map_eye_1.npz",
-        "start_x": 1008,
-        "start_y": 642,
-        "crop_width": 1065,
-        "crop_height": 1065
+        "start_x": 0,
+        "start_y": 0,
+        "crop_width": 5000,
+        "crop_height": 5000
     }
 }
