@@ -255,6 +255,7 @@ def kalman_process_OD(od_position_queue, output_queue):
     vy = 0
     t_last_predict = t_last_groundtruth = datetime.now()
 
+    ts_since_last_predict = 0
     while True:
         # try to get element from queue
         try:
@@ -279,11 +280,15 @@ def kalman_process_OD(od_position_queue, output_queue):
             # check if we have a ground truth value since last prediction by comparing t_last_predict and t_last_groundtruth
             if (t_last_predict - t_last_groundtruth).total_seconds() >= 0:
                 logger.debug(f"Kalman process: no ground truth value since last prediction, use prediction to further predict")
-                tracker.predict()
-                # logger.debug(f"Tracker update with x: {x}, y: {y}")
-                # get predicted values
-                (x, vx, y, vy) = tracker.x
-                tracker.update(np.array([x, y]))
+                if ts_since_last_predict < klmp.max_timesteps_without_detection:
+                    tracker.predict()
+                    # logger.debug(f"Tracker update with x: {x}, y: {y}")
+                    # get predicted values
+                    (x, vx, y, vy) = tracker.x
+                    ts_since_last_predict += 1
+                else:
+                    tracker.P = np.eye(4) * 500.
+                # tracker.update(np.array([x, y]))
             else:
                 logger.debug(f"Kalman process: found ground truth value since last prediction, use ground truth value to further predict")
                 # # since there is a delay we predict as many times as we have to given dt and tcap of ground truth values
@@ -302,15 +307,10 @@ def kalman_process_OD(od_position_queue, output_queue):
                 tracker.predict()
                 (x, vx, y, vy) = tracker.x
                 tracker.update(np.array([xod, yod]))
+                ts_since_last_predict = 0
                 tracker.predict()
                 (x, vx, y, vy) = tracker.x
-                # tracker.predict()
-                # (x, vx, y, vy) = tracker.x
-                    # check if output queue is not None, if so push predicted values to output queue
-
-                # logger.debug(f"Tracker update with xgt: {xod}, ygt: {yod}, predicted {num_predictions} times")
-                # get predicted values
-                # (x, vx, y, vy) = tracker.x
+                ts_since_last_predict += 1
 
             t_last_predict = datetime.now()
             logger.debug(f"Kalman process: predicted values: x: {x}, y: {y}, vx: {vx}, vy: {vy}")

@@ -82,6 +82,24 @@ def main_kalman():
 
 def main_multieye_kalman():
     logger.info("Starting CoBe with multi-eye mode WITH Kalman-filtering.")
+
+    args = argparse.ArgumentParser(description="Starts the the whole stack using a multiple eyes.")
+
+    # adding optional arguments
+    adt = args.add_argument("--det_target", default=None, help="detection target (stick or feet)")
+    args = args.parse_args()
+
+    if args.det_target is not None:
+        det_targ = args.det_target.replace(' ', '')
+        if det_targ not in ["stick", "feet"]:
+            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'feet'.")
+        else:
+            logger.info(f"Detection target set to: {det_targ}")
+    else:
+        logger.info(f"No detection target provided. Using 'stick' as default.")
+        det_targ = "stick"
+
+
     pswd = getpass("Provide master password:")
     # Creating common queue to push detections
     pred_queue = Queue()
@@ -95,7 +113,7 @@ def main_multieye_kalman():
     eye_processes = []
     for eye_name in network.eyes.keys():
         logger.info(f"Starting eye {eye_name}")
-        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, "stick",))
+        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, det_targ,))
         eye_processes.append(eye_process)
 
     # Starting eye processes
@@ -122,6 +140,23 @@ def main_multieye_kalman():
 
 def main_multieye():
     logger.info("Starting CoBe with multi-eye mode (no Kalman-filtering).")
+
+    args = argparse.ArgumentParser(description="Starts the the whole stack using a multiple eyes.")
+
+    # adding optional arguments
+    adt = args.add_argument("--det_target", default=None, help="detection target (stick or feet)")
+    args = args.parse_args()
+
+    if args.det_target is not None:
+        det_targ = args.det_target.replace(' ', '')
+        if det_targ not in ["stick", "feet"]:
+            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'feet'.")
+        else:
+            logger.info(f"Detection target set to: {det_targ}")
+    else:
+        logger.info(f"No detection target provided. Using 'stick' as default.")
+        det_targ = "stick"
+
     pswd = getpass("Provide master password:")
     # Creating common queue to push detections
     pred_queue = Queue()
@@ -135,7 +170,7 @@ def main_multieye():
     eye_processes = []
     for eye_name in network.eyes.keys():
         logger.info(f"Starting eye {eye_name}")
-        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, "stick",))
+        eye_process = Process(target=master.start, args=(False, eye_name, 100000, pred_queue, True, det_targ,))
         eye_processes.append(eye_process)
 
     # Starting eye processes

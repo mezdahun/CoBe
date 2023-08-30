@@ -10,7 +10,7 @@ proj_calib_image_width = 4000
 proj_calib_image_height = proj_calib_image_width
 
 # single aruco code size
-num_codes_per_row = 6
+num_codes_per_row = 8
 pad_size = 100
 code_size = int(proj_calib_image_width / num_codes_per_row) - 2 * pad_size
 if code_size < 50:
