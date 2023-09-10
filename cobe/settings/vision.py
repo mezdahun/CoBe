@@ -16,8 +16,8 @@ start_y = os.getenv("START_Y", 0)  # start cropping from this y coordinate for d
 crop_width = os.getenv("CROP_WIDTH", 3264)  # crop the image to this width  2500
 crop_height = os.getenv("CROP_HEIGHT", 2464)  # crop the image to this height  2500
 
-display_width = os.getenv("DISPLAY_WIDTH", 416)  # fisheye calibration maps should be adjusted to this resolution 416
-display_height = os.getenv("DISPLAY_HEIGHT", 416)  # fisheye calibration maps should be adjusted to this resolution 416
+display_width = os.getenv("DISPLAY_WIDTH", 3264)  # fisheye calibration maps should be adjusted to this resolution 416
+display_height = os.getenv("DISPLAY_HEIGHT", 2464)  # fisheye calibration maps should be adjusted to this resolution 416
 
 end_x = min(start_x + crop_width, capture_width)  # end cropping at this x coordinate
 end_y = min(start_y + crop_height, capture_height)  # end cropping at this y coordinate
