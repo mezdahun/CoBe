@@ -12,9 +12,9 @@ api_key = "gX0Zo9eq9sRf7wfJNDMH"
 # version = "2"
 
 # model name
-model_name = "cobe"  # "face-detection-mik1i"
+model_name = "cobe2"  # "face-detection-mik1i"
 # url of the background roboflow inference server container (with ending /)
 inf_server_url = "http://localhost:9001/"
 model_id = "/" + model_name
-version = "5"
+version = "1"
 
