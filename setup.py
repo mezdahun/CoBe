@@ -36,7 +36,9 @@ setup(
             'scipy',
             'pynput',
             'psutil',
-            'fabric'
+            'fabric',
+            'tinyflux',
+            'filterpy'
         ]
     },
     entry_points={
@@ -55,7 +57,8 @@ setup(
                             "cobe-rendering-shutdown=cobe.app:shutdown_rendering",
                             "cobe-rendering-startup=cobe.app:startup_rendering",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
-                            "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container"]
+                            "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container",
+                            "cobe-database-start=cobe.app:start_database"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

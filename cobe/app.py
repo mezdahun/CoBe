@@ -2,9 +2,10 @@ import argparse
 import time
 
 from cobe.cobe.cobemaster import CoBeMaster, file_writer_process
+from cobe.database.database import database_daemon_process
 from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
-from cobe.settings import network
+from cobe.settings import network, database
 import logging
 from cobe.settings import logs
 from multiprocessing import Process, Queue
@@ -78,6 +79,19 @@ def main_kalman():
     # Terminating kalman process when master finished
     kalman_process.terminate()
     kalman_process.join()
+
+
+def start_database():
+    """Starting database process in a different thread"""
+    logger.info(f"Starting database daemon consuming {database.database_input_path}...")
+    db_process = Process(target=database_daemon_process, args=(database.database_input_path,))
+    db_process.start()
+    logger.info("Database daemon started.")
+    stop_process = input("Press ENTER to stop the database process...")
+    logger.info("Stopping database daemon...")
+    db_process.terminate()
+    db_process.join()
+    logger.info("Database daemon stopped. Nothing will be recorded until restarted!")
 
 
 def main_multieye_kalman():
