@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 
 from cobe.cobe.cobemaster import CoBeMaster, file_writer_process
@@ -83,8 +84,22 @@ def main_kalman():
 
 def start_database():
     """Starting database process in a different thread"""
+
     logger.info(f"Starting database daemon consuming {database.database_input_path}...")
-    db_process = Process(target=database_daemon_process, args=(database.database_input_path,))
+
+    # check if database input folder exists
+    if not os.path.exists(database.database_input_path):
+        raise FileNotFoundError(f"Database input folder {database.database_input_path} does not exist. ")
+
+    # check if input folder is empty
+    if len(os.listdir(database.database_input_path)) != 0:
+        logger.warning(f"Database input folder {database.database_input_path} is not empty. ")
+        with_wipe_input = input("Do you want to wipe the input folder and only record data from now on? (y/n)").lower() == 'y'
+    else:
+        with_wipe_input = False
+
+
+    db_process = Process(target=database_daemon_process, args=(database.database_input_path, with_wipe_input,))
     db_process.start()
     logger.info("Database daemon started.")
     stop_process = input("Press ENTER to stop the database process...")

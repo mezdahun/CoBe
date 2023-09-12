@@ -86,8 +86,14 @@ def check_db_input_folder(dp_input_path, precision=4):
         return raw_dict
 
 
-def database_daemon_process(db_input_folder):
+def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
     """Daemon process that reads the database input folder and writes the data into the database"""
+    # deleting all files in input folder if requested
+    if with_wiping_input_folder:
+        for file in os.listdir(db_input_folder):
+            os.remove(os.path.join(db_input_folder, file))
+        logger.info(f"Deleted all files in database input folder {db_input_folder} before starting daemon")
+
     # creating database first with run_id
     shard_id = 0
     db_timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
