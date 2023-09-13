@@ -1,1 +1,1 @@
-database_input_path = "C:\\Users\\David\\Desktop\\CoBe\\data\\database_input"
+database_input_path = "C:\\Users\\David\\CoBe\\data\\database\\database_input"

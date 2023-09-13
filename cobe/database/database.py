@@ -54,36 +54,48 @@ def check_db_input_folder(dp_input_path, precision=4):
 
     # read all files in folder with json
     raw_dict = {}
-    for file in os.listdir(dp_input_path):
+    for fi, file in enumerate(os.listdir(dp_input_path)):
         filename, file_extension = os.path.splitext(file)
         logger.debug(f"Reading file {file}")
+
+        # check if the file is the newest in the list
+        file_age = time.time() - os.path.getmtime(os.path.join(dp_input_path, file))
+
         if file_extension == ".json":
-            with open(os.path.join(dp_input_path, file), "r") as f:
-                input_data = json.load(f)
-                timestep = input_data["Step"]
-                timestamp = datetime.now()
-                raw_dict[timestep] = {}
-                # looping through all prey and filling the raw_dict
-                for prey in input_data["Prey"]:
-                    id = prey["ID"]
-                    if id > 50:
-                        pass
-                    else:
-                        raw_dict[timestep][f"x{id}"] = round(prey["x0"], precision)
-                        raw_dict[timestep][f"y{id}"] = round(prey["x1"], precision)
-                # filling up with predator (ONLY ONE PREDATOR)
-                predator = input_data["Predator"][0]
-                raw_dict[timestep]["prx"] = round(predator["x0"], precision)
-                raw_dict[timestep]["pry"] = round(predator["x1"], precision)
-                # add read timestamp
-                raw_dict[timestep]["timestamp"] = timestamp
+            if os.path.isfile(os.path.join(dp_input_path, file)) and os.access(os.path.join(dp_input_path, file), os.R_OK):
+                try:
+                    with open(os.path.join(dp_input_path, file), "r") as f:
+                        input_data = json.load(f)
+                        timestep = input_data["Step"]
+                        timestamp = datetime.now()
+                        raw_dict[timestep] = {}
+                        # looping through all prey and filling the raw_dict
+                        for prey in input_data["Prey"]:
+                            id = prey["ID"]
+                            if id > 50:
+                                pass
+                            else:
+                                raw_dict[timestep][f"x{id}"] = round(prey["x0"], precision)
+                                raw_dict[timestep][f"y{id}"] = round(prey["x1"], precision)
+                        # filling up with predator (ONLY ONE PREDATOR)
+                        for predator in input_data["Predator"]:
+                            id = predator["ID"]
+                            raw_dict[timestep][f"prx{id}"] = round(predator["x0"], precision)
+                            raw_dict[timestep][f"pry{id}"] = round(predator["x1"], precision)
+                        # add read timestamp
+                        raw_dict[timestep]["timestamp"] = timestamp
 
-            # delete file after reading
-            os.remove(os.path.join(dp_input_path, file))
-            logger.debug(f"File {file} deleted")
+                    # delete file after reading
+                    os.remove(os.path.join(dp_input_path, file))
+                    logger.debug(f"File {file} deleted")
 
-        logging.debug("Read files into raw dicitonary, forwarding to database writer...")
-        return raw_dict
+                except Exception as e:
+                    logger.error(f"Error while reading file {file}: {e}")
+
+
+
+    logging.debug("Read files into raw dicitonary, forwarding to database writer...")
+    return raw_dict
 
 
 def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
@@ -91,7 +103,10 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
     # deleting all files in input folder if requested
     if with_wiping_input_folder:
         for file in os.listdir(db_input_folder):
-            os.remove(os.path.join(db_input_folder, file))
+            try:
+                os.remove(os.path.join(db_input_folder, file))
+            except Exception as e:
+                logger.error(f"Error while deleting file {file}: {e}")
         logger.info(f"Deleted all files in database input folder {db_input_folder} before starting daemon")
 
     # creating database first with run_id
