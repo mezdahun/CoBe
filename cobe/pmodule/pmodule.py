@@ -136,6 +136,16 @@ def generate_pred_json(position_list):
             "x1": position[1]
         })
 
+    # filling list with dummy predators if necessary
+    while len(output_list) < ps.num_predators:
+        output_list.append({
+            "ID": len(output_list),
+            "v0": 0,
+            "v1": 0,
+            "x0": -3000,
+            "x1": -3000
+        })
+
     # writing to file with json.dump
     with open(os.path.join(ps.root_folder, filename), 'w') as f:
         json.dump(output_list, f)

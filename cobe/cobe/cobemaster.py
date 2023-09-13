@@ -27,7 +27,7 @@ from scipy.interpolate import Rbf
 from pynput import keyboard
 
 from cobe.settings.pmodulesettings import max_abs_coord
-from cobe.settings import network, odmodel, aruco, vision, logs
+from cobe.settings import network, odmodel, aruco, vision, logs, pmodulesettings
 from cobe.rendering.renderingstack import RenderingStack
 from cobe.pmodule.pmodule import generate_pred_json
 from cobe.tools import cropzoomtool
@@ -84,10 +84,10 @@ def filter_detections(detections, det_target="feet"):
         # else:
         #     detections = []
 
-    if len(detections) > 1:
+    if len(detections) > pmodulesettings.num_predators:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
         detections = sorted(detections, key=lambda x: x["confidence"], reverse=True)
-        detections = [detections[0]]
+        detections = [detections[i] for i in range(pmodulesettings.num_predators)]
     logger.debug(f"Chosen detection after filtering: {detections}")
     return detections
 
@@ -552,7 +552,7 @@ class CoBeMaster(object):
                                 switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None, no_calib=False, det_target="feet"):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None, no_calib=False, det_target="stick"):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
