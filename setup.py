@@ -71,7 +71,8 @@ setup(
                             "cobe-rendering-startup=cobe.app:startup_rendering",
                             "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container",
-                            "cobe-database-start=cobe.app:start_database"]
+                            "cobe-database-start=cobe.app:start_database",
+                            "cobe-thymio-start=cobe.thymio.thymio:main"]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
