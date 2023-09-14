@@ -146,11 +146,6 @@ class CoBeThymio(object):
         Method to move robot forward in a straight fixed speed, or stop if it is already moving forward
         """
         motor_avg = (self.left + self.right) / 2
-        if motor_avg == 0:
-            motor_avg = 100
-        if self.left == self.right and self.left != 0:
-            self.stop()
-            return
         self.left = motor_avg
         self.right = motor_avg
         self.move()
