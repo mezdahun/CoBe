@@ -109,6 +109,14 @@ class CoBeThymio(object):
         """
         Method to move robot with current motor values
         """
+        if self.left > 500:
+            self.left = 500
+        elif self.left < -500:
+            self.left = -500
+        if self.right > 500:
+            self.right = 500
+        elif self.right < -500:
+            self.right = -500
         self.network.SetVariable("thymio-II", "motor.left.target", [self.left])
         self.network.SetVariable("thymio-II", "motor.right.target", [self.right])
 
@@ -148,6 +156,7 @@ class CoBeThymio(object):
         motor_avg = (self.left + self.right) / 2
         self.left = motor_avg
         self.right = motor_avg
+        logger.info(f"Moving forward with speed {motor_avg}")
         self.move()
 
     @expose
@@ -167,6 +176,17 @@ class CoBeThymio(object):
         self.left -= self.speed_increment
         self.right -= self.speed_increment
         self.move_forward()
+
+    @expose
+    def pass_time(self):
+        """
+        Method to pass time
+        """
+        # check if motor values are the same on left and right
+        if self.left != self.right:
+            # if not, set them to the same value
+            self.left = self.right = (self.left + self.right) / 2
+
 
 
 
