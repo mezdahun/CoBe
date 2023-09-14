@@ -140,7 +140,7 @@ class CoBeThymioMaster(object):
             # The event listener will be running in this block, check if buttons are pressed
             with keyboard.Events() as events:
                 # Block at most one second
-                event = events.get(0.2)
+                event = events.get(0.1)
                 if event is None:
                     logger.info("passing time")
                     thymio.pass_time()
@@ -182,7 +182,6 @@ class CoBeThymioMaster(object):
 
                 logger.info("passing time")
                 thymio.pass_time()
-                time.sleep(0.2)
 
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""

@@ -169,6 +169,13 @@ class CoBeThymio(object):
         self.move()
 
     @expose
+    def get_target_speed(self):
+        """
+        Method to return robot speed
+        """
+        return (self.left, self.right)
+
+    @expose
     def stop(self):
         """
         Method to stop robot
