@@ -57,6 +57,7 @@ class CoBeThymio(object):
         self.right = 0
         self.speed_increment = 50
         self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
+        self.prox_trh = 30
 
         self.light_up_led(0, 32, 0)
 
@@ -119,13 +120,22 @@ class CoBeThymio(object):
             self.right = 500
         elif self.right < -500:
             self.right = -500
+
         # check if any of the proximity values is above 100
         self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
         logger.info(self.prox_val)
-        if np.any(self.prox_val > 100):
-            # if so, stop the robot
-            self.left = 0
-            self.right = 0
+        if np.any(self.prox_val > self.prox_trh):
+            # if so, stop the robot (only if not turning)
+            if (self.left + self.right) / 2 > 0:
+                if np.any(self.prox_val[0:5] > self.prox_trh):
+                    self.left = 0
+                    self.right = 0
+            elif (self.left + self.right) / 2 < 0:
+                if np.any(self.prox_val[5:7] > self.prox_trh):
+                    self.left = 0
+                    self.right = 0
+            else:
+                pass  # turning robot
         self.network.SetVariable("thymio-II", "motor.left.target", [self.left])
         self.network.SetVariable("thymio-II", "motor.right.target", [self.right])
 
