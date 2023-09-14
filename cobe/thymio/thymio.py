@@ -54,7 +54,7 @@ class CoBeThymio(object):
         # motor values
         self.left = 0
         self.right = 0
-        self.speed_increment = 25
+        self.speed_increment = 50
 
         self.light_up_led(0, 32, 0)
 

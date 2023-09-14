@@ -91,10 +91,101 @@ def filter_detections(detections, det_target="feet"):
     logger.debug(f"Chosen detection after filtering: {detections}")
     return detections
 
+class CoBeThymioMaster(object):
+    """The main class to control thymio robots via pyro5"""
+    def __init__(self, pswd=None, target_thymio_name="thymio_0"):
+        """Constructor for CoBeMaster"""
+        # thymios of the pyro network
+        self.target_th_name = target_thymio_name
+        self.thymios = self.create_thymio_objects()
+
+    def create_thymio_objects(self):
+        """Creates thymio Pyro objects from the network settings"""
+        thymios = {}
+        for th_name, th_data in network.thymios.items():
+            if self.target_th_name is not None and th_name != self.target_th_name:
+                logger.info(f"Skipping thymio {th_name} during creating CoBeMaster class because it is not the target thymio.")
+                continue
+            try:
+                thymios[th_name] = {"pyro_proxy": Proxy(
+                    th_data["uri"] + th_data["name"] + "@" + th_data["host"] + ":" + th_data["port"])}
+                thymios[th_name]["th_data"] = th_data
+                # testing created thymio by accessing public Pyro method and comparing outcome with expected ID
+                assert int(thymios[th_name]["pyro_proxy"].return_id()) == int(thymios[th_name]["th_data"]["expected_id"])
+                logger.debug(f"Eye {th_name} created successfully in CoBeMaster instance.")
+            except Exception as e:
+                logger.warning(f"Error creating thymio {th_name}: {e}")
+                logger.warning(f"This can happen because of a wrong URI or the thymio not being on or the thymioserver not "
+                               f"running."
+                               f"Proceeding now without this thymio: {th_name}")
+                logger.warning(f"If this is not intended please debug according to the wiki! All thymios should be turned on,"
+                               f"reachable via ssh (connected to local network) with URIs set in the network settings,"
+                               f"and all has to have a running Pyro5 thymioserver.")
+                del thymios[th_name]
+        return thymios
+
+    def start_remote_control(self):
+        """Start main remote control loop"""
+        if self.target_th_name is None:
+            target = "thymio_0"
+            logger.info("No target thymio specified, using thymio_0.")
+        else:
+            target = self.target_th_name
+
+        logger.info(f"Starting remote control for thymio {target}.")
+        thymio = self.thymios[target]["pyro_proxy"]
+
+
+        while True:
+            # The event listener will be running in this block, check if buttons are pressed
+            with keyboard.Events() as events:
+                # Block at most one second
+                event = events.get(0.2)
+                if event is None:
+                    logger.info("passing time")
+                    thymio.pass_time()
+                elif isinstance(event, keyboard.Events.Press):
+                    if event.key == keyboard.Key.esc:
+                        logger.info("Quitting")
+                        return
+                    elif event.key == keyboard.Key.space:
+                        thymio.move_forward()
+                        logger.info("Moving forward")
+                        logger.info("passing time")
+                        thymio.pass_time()
+                    elif event.key == keyboard.Key.down:
+                        thymio.slow_down()
+                        logger.info("Slowing down")
+                        logger.info("passing time")
+                        thymio.pass_time()
+                    elif event.key == keyboard.Key.up:
+                        thymio.speed_up()
+                        logger.info("Speeding up")
+                        logger.info("passing time")
+                        thymio.pass_time()
+                    elif event.key == keyboard.Key.left:
+                        thymio.turn_left()
+                        logger.info("Turning left")
+                        continue
+                    elif event.key == keyboard.Key.right:
+                        thymio.turn_right()
+                        logger.info("Turning right")
+                        continue
+                    elif event.key == keyboard.Key.enter:
+                        thymio.stop()
+                        logger.info("Stopping")
+                        logger.info("passing time")
+                        thymio.pass_time()
+                    else:
+                        logger.info("passing time")
+                        thymio.pass_time()
+
+                logger.info("passing time")
+                thymio.pass_time()
+                time.sleep(0.2)
 
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
-
     def __init__(self, pswd=None, target_eye_name=None):
         """Constructor for CoBeMaster"""
         # eyes of the network
