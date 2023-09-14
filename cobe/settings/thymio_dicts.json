@@ -1,0 +1,9 @@
+{
+    "thymio_0": {
+        "expected_id": 0,
+        "host": "192.168.0.104",
+        "port": "1234",
+        "uri": "PYRO:",
+        "name": "cobe.thymio"
+    }
+}
