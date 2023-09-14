@@ -197,7 +197,7 @@ class CoBeThymio(object):
             logger.info("Straighten!")
             # if not, set them to the same value
             self.left = self.right = (self.left + self.right) / 2
-            self.move()
+        self.move()
 
 
 
