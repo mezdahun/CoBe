@@ -54,6 +54,9 @@ class CoBeThymio(object):
         # motor values
         self.left = 0
         self.right = 0
+        self.speed_increment = 25
+
+        self.light_up_led(0, 32, 0)
 
     @expose
     def has_pswd(self):
@@ -114,8 +117,8 @@ class CoBeThymio(object):
         """
         Method to turn robot left
         """
-        self.left += 10
-        self.right -= 10
+        self.left += self.speed_increment
+        self.right -= self.speed_increment
         self.move()
 
     @expose
@@ -123,8 +126,8 @@ class CoBeThymio(object):
         """
         Method to turn robot right
         """
-        self.left -= 10
-        self.right += 10
+        self.left -= self.speed_increment
+        self.right += self.speed_increment
         self.move()
 
     @expose
@@ -135,6 +138,7 @@ class CoBeThymio(object):
         self.left = 0
         self.right = 0
         self.move()
+        self.light_up_led(32, 0, 0)
 
     @expose
     def move_forward(self):
@@ -144,7 +148,7 @@ class CoBeThymio(object):
         motor_avg = (self.left + self.right) / 2
         if motor_avg == 0:
             motor_avg = 100
-        if self.left == self.right and self.left > 0:
+        if self.left == self.right and self.left != 0:
             self.stop()
             return
         self.left = motor_avg
@@ -156,18 +160,19 @@ class CoBeThymio(object):
         """
         Method to speed up robot
         """
-        self.left += 10
-        self.right += 10
-        self.move()
+        self.left += self.speed_increment
+        self.right += self.speed_increment
+        self.move_forward()
 
     @expose
     def slow_down(self):
         """
         Method to slow down robot
         """
-        self.left -= 10
-        self.right -= 10
-        self.move()
+        self.left -= self.speed_increment
+        self.right -= self.speed_increment
+        self.move_forward()
+
 
 
 
