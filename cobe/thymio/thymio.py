@@ -7,6 +7,7 @@ import tempfile
 from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 import os
+import numpy as np
 
 import dbus
 import dbus.mainloop.glib
@@ -55,6 +56,7 @@ class CoBeThymio(object):
         self.left = 0
         self.right = 0
         self.speed_increment = 50
+        self.prox_val = np.array([val for val in network.GetVariable("thymio-II", "prox.horizontal")])
 
         self.light_up_led(0, 32, 0)
 
@@ -117,8 +119,16 @@ class CoBeThymio(object):
             self.right = 500
         elif self.right < -500:
             self.right = -500
+        # check if any of the proximity values is above 100
+        self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
+        logger.info(self.prox_val)
+        if np.any(self.prox_val > 100):
+            # if so, stop the robot
+            self.left = 0
+            self.right = 0
         self.network.SetVariable("thymio-II", "motor.left.target", [self.left])
         self.network.SetVariable("thymio-II", "motor.right.target", [self.right])
+
 
     @expose
     def turn_left(self):
