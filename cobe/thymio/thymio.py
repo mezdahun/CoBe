@@ -10,7 +10,6 @@ import os
 
 import dbus
 import dbus.mainloop.glib
-from visualswarm.control import motorinterface
 
 import logging  # must be imported and set before pyro
 from cobe.settings import logs, network
