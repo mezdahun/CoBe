@@ -7,6 +7,7 @@ import tempfile
 from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 import os
+import numpy as np
 
 import dbus
 import dbus.mainloop.glib
@@ -54,7 +55,13 @@ class CoBeThymio(object):
         # motor values
         self.left = 0
         self.right = 0
-        self.speed_increment = 25
+
+        self.left_before_turn = None
+        self.right_before_turn = None
+
+        self.speed_increment = 50
+        self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
+        self.prox_trh = 30
 
         self.light_up_led(0, 32, 0)
 
@@ -117,14 +124,34 @@ class CoBeThymio(object):
             self.right = 500
         elif self.right < -500:
             self.right = -500
+
+        # check if any of the proximity values is above 100
+        self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
+        logger.debug(f"Prox: {self.prox_val}")
+        if np.any(self.prox_val > self.prox_trh):
+            # if so, stop the robot (only if not turning)
+            if (self.left + self.right) / 2 > 0:
+                if np.any(self.prox_val[0:5] > self.prox_trh):
+                    self.left = 0
+                    self.right = 0
+            elif (self.left + self.right) / 2 < 0:
+                if np.any(self.prox_val[5:7] > self.prox_trh):
+                    self.left = 0
+                    self.right = 0
+            else:
+                pass  # turning robot
         self.network.SetVariable("thymio-II", "motor.left.target", [self.left])
         self.network.SetVariable("thymio-II", "motor.right.target", [self.right])
+
 
     @expose
     def turn_left(self):
         """
         Method to turn robot left
         """
+        if self.left_before_turn is None:
+            self.left_before_turn = self.left
+            self.right_before_turn = self.right
         self.left -= self.speed_increment
         self.right += self.speed_increment
         self.move()
@@ -134,9 +161,19 @@ class CoBeThymio(object):
         """
         Method to turn robot right
         """
+        if self.left_before_turn is None:
+            self.left_before_turn = self.left
+            self.right_before_turn = self.right
         self.left += self.speed_increment
         self.right -= self.speed_increment
         self.move()
+
+    @expose
+    def get_target_speed(self):
+        """
+        Method to return robot speed
+        """
+        return (self.left, self.right)
 
     @expose
     def stop(self):
@@ -186,8 +223,12 @@ class CoBeThymio(object):
         if self.left != self.right:
             logger.info("Straighten!")
             # if not, set them to the same value
-            self.left = self.right = (self.left + self.right) / 2
-            self.move()
+            # self.left = self.right = (self.left + self.right) / 2
+            self.left = self.left_before_turn
+            self.right = self.right_before_turn
+            self.left_before_turn = None
+            self.right_before_turn = None
+        self.move()
 
 
 
