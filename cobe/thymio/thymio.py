@@ -115,7 +115,7 @@ def main(host="localhost", port=9090):
     # Starting Pyro5 Daemon
     with Daemon(host, port) as daemon:
         th_instance = CoBeThymio()
-        uri = daemon.register(th_instance, objectId="cobe.eye")
+        uri = daemon.register(th_instance, objectId="cobe.thymio")
         logger.info(f"Pyro5 Thymio daemon started on {host}:{port} with URI {uri}")
         daemon.requestLoop(th_instance.is_running)
 
