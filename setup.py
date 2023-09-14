@@ -39,6 +39,19 @@ setup(
             'fabric',
             'tinyflux',
             'filterpy'
+        ],
+        'cobe-thymio': [
+            'opencv-python==4.4.0.46',
+            'numpy==1.20.1',
+            'picamera==1.13',
+            'pandas==1.2.0',
+            'influxdb==5.3.1',
+            'scipy==1.6.0',
+            'psutil==5.8.0',
+            'pycairo==1.20.0',
+            'PyGObject==3.38.0',
+            'dbus-python==1.2.16',
+            'typing-extensions==3.7.4.3',
         ]
     },
     entry_points={

@@ -2,13 +2,20 @@
 ### so that one can control them remotely according to simulation data in CoBe
 
 import argparse
+import tempfile
+
 from Pyro5.api import expose, behavior, oneway
 from Pyro5.server import Daemon
 import os
 
+import dbus
+import dbus.mainloop.glib
+from visualswarm.control import motorinterface
+
 import logging  # must be imported and set before pyro
 from cobe.settings import logs, network
 from cobe.tools.iptools import get_local_ip_address
+from cobe.thymio import aseba_tools
 
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger("thymio")
@@ -23,14 +30,27 @@ class CoBeThymio(object):
         # Mimicking initialization of eye using e.g. environment parameters or
         # other setting files distributed before
         # ID of the Nano module
-        self.id = os.getenv("EYE_ID", 0)
+        self.id = os.getenv("ROBOT_ID", 0)
         self.th_name = "thymio_" + str(self.id)
         self.eye_params = network.thymios[self.th_name]
         self.local_ip = get_local_ip_address()
+
         # pyro5 daemon stopping flag
         self._is_running = True
+
         # sudo pswd
         self.pswd = None
+
+        # Initiating connection to Thymio2 base via asebamedulla
+        aseba_tools.asebamedulla_init()
+
+        # Creating dbus network to reach Thymio2
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+        self.bus = dbus.SessionBus()
+        self.network = dbus.Interface(self.bus.get_object('ch.epfl.mobots.Aseba', '/'),
+                                      dbus_interface='ch.epfl.mobots.AsebaNetwork')
+
+        self.is_connection_healthy = aseba_tools.asebamedulla_health(self.network)
 
     @expose
     def has_pswd(self):
@@ -56,6 +76,27 @@ class CoBeThymio(object):
         """This is exposed on the network and can have a return value"""
         logger.debug(f"ID was requested and returned: {self.id}")
         return self.id
+
+    @expose
+    def light_up_led(self, R, G, B):
+        """
+        Method to light up top LEDS on robot
+            Args:
+                network: DBUS network to reach Thymio2
+                R, G, B: color configuration of led, min: (0, 0, 0), max: (32, 32, 32)
+            Returns:
+                None
+        """
+        with tempfile.NamedTemporaryFile(suffix='.aesl', mode='w+t') as aesl:
+            aesl.write('<!DOCTYPE aesl-source>\n<network>\n')
+            node_id = 1
+            name = 'thymio-II'
+            aesl.write(f'<node nodeId="{node_id}" name="{name}">\n')
+            aesl.write(f'call leds.top({R},{G},{B})\n')
+            aesl.write('</node>\n')
+            aesl.write('</network>\n')
+            aesl.seek(0)
+            self.network.LoadScripts(aesl.name)
 
 
 def main(host="localhost", port=9090):
