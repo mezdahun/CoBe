@@ -56,7 +56,7 @@ class CoBeThymio(object):
         self.left = 0
         self.right = 0
         self.speed_increment = 50
-        self.prox_val = np.array([val for val in network.GetVariable("thymio-II", "prox.horizontal")])
+        self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
 
         self.light_up_led(0, 32, 0)
 
