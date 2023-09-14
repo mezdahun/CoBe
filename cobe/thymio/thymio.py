@@ -184,6 +184,7 @@ class CoBeThymio(object):
         """
         # check if motor values are the same on left and right
         if self.left != self.right:
+            logger.info("Straighten!")
             # if not, set them to the same value
             self.left = self.right = (self.left + self.right) / 2
             self.move()
