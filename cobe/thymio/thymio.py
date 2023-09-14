@@ -117,8 +117,8 @@ class CoBeThymio(object):
         """
         Method to turn robot left
         """
-        self.left += self.speed_increment
-        self.right -= self.speed_increment
+        self.left -= self.speed_increment
+        self.right += self.speed_increment
         self.move()
 
     @expose
@@ -126,8 +126,8 @@ class CoBeThymio(object):
         """
         Method to turn robot right
         """
-        self.left -= self.speed_increment
-        self.right += self.speed_increment
+        self.left += self.speed_increment
+        self.right -= self.speed_increment
         self.move()
 
     @expose
