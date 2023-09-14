@@ -51,6 +51,10 @@ class CoBeThymio(object):
 
         self.is_connection_healthy = aseba_tools.asebamedulla_health(self.network)
 
+        # motor values
+        self.left = 0
+        self.right = 0
+
     @expose
     def has_pswd(self):
         """Returns whether the eye has a password set"""
@@ -96,6 +100,75 @@ class CoBeThymio(object):
             aesl.write('</network>\n')
             aesl.seek(0)
             self.network.LoadScripts(aesl.name)
+
+    @expose
+    def move(self):
+        """
+        Method to move robot with current motor values
+        """
+        self.network.SetVariable("thymio-II", "motor.left.target", [self.left])
+        self.network.SetVariable("thymio-II", "motor.right.target", [self.right])
+
+    @expose
+    def turn_left(self):
+        """
+        Method to turn robot left
+        """
+        self.left += 10
+        self.right -= 10
+        self.move()
+
+    @expose
+    def turn_right(self):
+        """
+        Method to turn robot right
+        """
+        self.left -= 10
+        self.right += 10
+        self.move()
+
+    @expose
+    def stop(self):
+        """
+        Method to stop robot
+        """
+        self.left = 0
+        self.right = 0
+        self.move()
+
+    @expose
+    def move_forward(self):
+        """
+        Method to move robot forward in a straight fixed speed, or stop if it is already moving forward
+        """
+        motor_avg = (self.left + self.right) / 2
+        if motor_avg == 0:
+            motor_avg = 100
+        if self.left == self.right and self.left > 0:
+            self.stop()
+            return
+        self.left = motor_avg
+        self.right = motor_avg
+        self.move()
+
+    @expose
+    def speed_up(self):
+        """
+        Method to speed up robot
+        """
+        self.left += 10
+        self.right += 10
+        self.move()
+
+    @expose
+    def slow_down(self):
+        """
+        Method to slow down robot
+        """
+        self.left -= 10
+        self.right -= 10
+        self.move()
+
 
 
 def main(host="localhost", port=9090):
