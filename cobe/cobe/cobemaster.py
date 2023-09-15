@@ -50,6 +50,7 @@ def filter_detections(detections, det_target="feet"):
     feet_dets = [det for det in detections if det["class"] == "feet"]
     trunk_dets = [det for det in detections if det["class"] == "trunk"]
     head_dets = [det for det in detections if det["class"] == "head"]
+    thymio_dets = [det for det in detections if det["class"] == "thymio"]
 
     # If a stick is visible we override any other detections, this is the preferred detection
     if det_target == "stick":
@@ -63,6 +64,13 @@ def filter_detections(detections, det_target="feet"):
         if len(feet_dets) > 0:
             logger.debug("Using feet detection.")
             detections = feet_dets
+        else:
+            # Otherwise we prefer feet detections, but that is impossible in some positions
+            detections = []
+    elif det_target == "thymio":
+        if len(thymio_dets) > 0:
+            logger.debug("Using thymio detection.")
+            detections = thymio_dets
         else:
             # Otherwise we prefer feet detections, but that is impossible in some positions
             detections = []
@@ -142,7 +150,6 @@ class CoBeThymioMaster(object):
                 # Block at most one second
                 event = events.get(0.1)
                 if event is None:
-                    logger.info("passing time")
                     thymio.pass_time()
                 elif isinstance(event, keyboard.Events.Press):
                     if event.key == keyboard.Key.esc:
@@ -151,17 +158,14 @@ class CoBeThymioMaster(object):
                     elif event.key == keyboard.Key.space:
                         thymio.move_forward()
                         logger.info("Moving forward")
-                        logger.info("passing time")
                         thymio.pass_time()
                     elif event.key == keyboard.Key.down:
                         thymio.slow_down()
                         logger.info("Slowing down")
-                        logger.info("passing time")
                         thymio.pass_time()
                     elif event.key == keyboard.Key.up:
                         thymio.speed_up()
                         logger.info("Speeding up")
-                        logger.info("passing time")
                         thymio.pass_time()
                     elif event.key == keyboard.Key.left:
                         thymio.turn_left()
@@ -174,13 +178,10 @@ class CoBeThymioMaster(object):
                     elif event.key == keyboard.Key.enter:
                         thymio.stop()
                         logger.info("Stopping")
-                        logger.info("passing time")
                         thymio.pass_time()
                     else:
-                        logger.info("passing time")
                         thymio.pass_time()
 
-                logger.info("passing time")
                 thymio.pass_time()
 
 class CoBeMaster(object):
@@ -816,10 +817,10 @@ class CoBeMaster(object):
                                             logger.info("Quitting requested by user. Exiting...")
                                             return
                                         elif event.key == keyboard.Key.up:
-                                            if det_target == "feet":
+                                            if det_target == "thymio":
                                                 det_target = "stick"
                                             elif det_target == "stick":
-                                                det_target = "feet"
+                                                det_target = "thymio"
                                             logger.info(f"Switching detection target to {det_target}!")
 
                                 # logger.info("Sleeping for 3 seconds...")
