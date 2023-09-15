@@ -62,6 +62,7 @@ class CoBeThymio(object):
         self.speed_increment = 50
         self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
         self.prox_trh = 30
+        self.max_turning_threshold = 0.25  # between 0 and 1
 
         self.light_up_led(0, 32, 0)
 
@@ -167,6 +168,27 @@ class CoBeThymio(object):
         self.left += self.speed_increment
         self.right -= self.speed_increment
         self.move()
+
+    @expose
+    def move_with_speed_and_angle(self, speed, angle):
+        """Translating movement with speed and angle into motor values and sending them
+        to left and right motors"""
+        # limiting speed
+        if speed > 500:
+            speed = 500
+        elif speed < -500:
+            speed = -500
+
+        # Calculating proportional heading angle change, as it will always fall between -pi and pi
+        dpsi_p = (angle / np.pi) * self.max_turning_threshold
+
+        # Distributing velocity to left and right motors according to requested angle and average speed
+        self.left = speed * (1 + dpsi_p)
+        self.right = speed * (1 - dpsi_p)
+
+        # Sending motor values to robot
+        self.move()
+
 
     @expose
     def get_target_speed(self):
