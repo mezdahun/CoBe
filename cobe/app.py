@@ -2,7 +2,7 @@ import argparse
 import os
 import time
 
-from cobe.cobe.cobemaster import CoBeMaster, file_writer_process
+from cobe.cobe.cobemaster import CoBeMaster, CoBeThymioMaster, file_writer_process
 from cobe.database.database import database_daemon_process
 from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
@@ -115,13 +115,13 @@ def main_multieye_kalman():
     args = argparse.ArgumentParser(description="Starts the the whole stack using a multiple eyes.")
 
     # adding optional arguments
-    adt = args.add_argument("--det_target", default=None, help="detection target (stick or feet)")
+    adt = args.add_argument("--det_target", default=None, help="detection target (stick or thymio)")
     args = args.parse_args()
 
     if args.det_target is not None:
         det_targ = args.det_target.replace(' ', '')
-        if det_targ not in ["stick", "feet"]:
-            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'feet'.")
+        if det_targ not in ["stick", "thymio"]:
+            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'thymio'.")
         else:
             logger.info(f"Detection target set to: {det_targ}")
     else:
@@ -173,13 +173,13 @@ def main_multieye():
     args = argparse.ArgumentParser(description="Starts the the whole stack using a multiple eyes.")
 
     # adding optional arguments
-    adt = args.add_argument("--det_target", default=None, help="detection target (stick or feet)")
+    adt = args.add_argument("--det_target", default=None, help="detection target (stick or thymio)")
     args = args.parse_args()
 
     if args.det_target is not None:
         det_targ = args.det_target.replace(' ', '')
-        if det_targ not in ["stick", "feet"]:
-            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'feet'.")
+        if det_targ not in ["stick", "thymio"]:
+            raise ValueError(f"Detection target '{det_targ}' not supported. Use 'stick' or 'thymio'.")
         else:
             logger.info(f"Detection target set to: {det_targ}")
     else:
@@ -390,6 +390,146 @@ def stop_eyeserver():
             else:
                 logger.info(f"Seems like eyeserver is not running on host {c.host}, skipping...")
         time.sleep(5)
+
+
+def thymio_remote_control():
+    """Starts Thymio remote control to selected thymio"""
+
+    args = argparse.ArgumentParser(description="Starts the the whole stack using a single eye.")
+
+    # adding optional arguments
+    aid = args.add_argument("--thymio_id", default=None, help="ID (int) of the thymio (nano board) to start thymioserver on as in"
+                                                           "settings.network")
+    args = args.parse_args()
+    if args.thymio_id is not None:
+        thymio_ids = [thymio['expected_id'] for thymio in network.thymios.values()]
+        thymio_id = int(args.thymio_id)
+        if thymio_id not in thymio_ids:
+            raise ValueError(f"thymio ID {thymio_id} not found in settings.network")
+
+    if f"thymio_{thymio_id}" not in network.thymios.keys():
+        raise ValueError(f"Thymio ID {thymio_id} not found in settings.network")
+
+
+    thymio_controller = CoBeThymioMaster(target_thymio_name=f"thymio_{thymio_id}")
+    thymio_controller.start_remote_control()
+
+
+def start_thymioserver(th_id=None):
+    """Starts the pyro thymioserver on the thymios defined by settins.network via fabric"""
+
+    args = argparse.ArgumentParser(description="Starts the pyro5 thymio servers on the chosen thymios")
+
+    # adding optional arguments
+    aid = args.add_argument("--thymio_id", default=None, help="ID (int) of the thymio (rpi board) to start thymioserver on as in"
+                                                           "settings.network.thymios")
+    args = args.parse_args()
+
+    if args.thymio_id is not None:
+        th_ids = [thymio['expected_id'] for thymio in network.thymios.values()]
+        th_id = int(args.thymio_id)
+        if th_id not in th_ids:
+            raise ValueError(f"Thymio ID {th_id} not found in settings.network")
+        th_ids = [th_id]
+    else:
+        th_ids = [th['expected_id'] for th in network.thymios.values()]
+
+    logger.info("Starting thymio servers...")
+    PSWD = getpass('sudo password to start thymio servers: ')
+    th_ips = [thymio['host'] for thymio in network.thymios.values() if thymio['expected_id'] in th_ids]
+    config = Config(overrides={'sudo': {'password': PSWD}})
+    thymios = Group(*th_ips, user=network.pi_username, config=config)
+    logger.info(f"Starting thymioservers on {th_ips}")
+    # if any thymios fail to startup we will delete them from the list and ask the user if he wants to proceed
+    thymios_to_delete = []
+    for ci, c in enumerate(thymios):
+        c.connect_kwargs.password = PSWD
+
+        # checking for already running thymioserver instances
+        try:
+            start_result = c.run('ps ax  | grep "cobe-thymio-start"')
+        except Exception as e:
+            logger.error(f"Error while checking for thymioserver on host {c.host}: {e}\n"
+                         f"This can be caused by the nvidia board not being turned on, not being properly\n"
+                         f"connected to the local network or having a wrong IP in cobe.settings.network.")
+
+            if ci < len(thymios) - 1:
+                proceed = input("Do you want to proceed with the next thymio? (y/n): ").lower() == "y"
+            else:
+                proceed = True
+
+            if proceed:
+                thymios_to_delete.append(c)
+                continue
+            else:
+                logger.info("Exiting...")
+                return
+
+        num_found_procs = len(start_result.stdout.split("\n"))
+        PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+        found_thymio_servers = num_found_procs > 3
+
+        # asking user if they want to restart the thymioserver if already running
+        if found_thymio_servers:
+            logger.info(f"Found {num_found_procs} processes running on host {c.host}.")
+            logger.info(f"Seems like thymioserver is already running with PID {PID}, skipping...")
+            restart_thymioserver = input("Do you want to restart/update the thymioserver? (y/n): ").lower() == "y"
+        else:
+            restart_thymioserver = False
+
+        # restarting thymioserver if requested
+        if restart_thymioserver:
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed thymioserver on host {c.host}, will restart now...")
+        else:
+            logger.info(f"thymioserver stop/restart was not requested on host {c.host}. Maybe no instance was running"
+                        f"or requested to skip restarting.")
+
+        # starting a new thymio server if it was not running or a restart was requested
+        if not found_thymio_servers or restart_thymioserver:
+            # starting thymioserver
+            logger.info(f'Starting thymioserver on host {c.host}')
+            c.run(f'cd {network.pi_cobe_installdir} && '
+                  'git pull && '
+                  'ls && '
+                  f'ROBOT_ID={th_ids[ci]} dtach -n /tmp/tmpdtach '
+                  f'pipenv run cobe-thymio-start --host={c.host} --port={network.unified_thymioserver_port}',
+                  hide=True,
+                  pty=False)
+            logger.info(f'Started thymioserver on host {c.host}')
+        time.sleep(5)
+
+    # deleting thymios that failed to start
+    for c in thymios_to_delete:
+        logger.info(f"Deleting thymio {c.host} from list of thymios as it failed to start...")
+        thymios.remove(c)
+
+    if len(thymios) > 0:
+        getpass(f'thymio servers started on {[c.host for c in thymios]}. Press any key to stop the thymio servers...')
+
+        logger.info('Killing thymio-server processes by collected PIDs...')
+        for c in thymios:
+            logger.info(f'Stopping thymioserver on host {c.host}')
+            c.connect_kwargs.password = PSWD
+            start_result = c.run('ps ax  | grep "cobe-thymio-start"')
+            PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+            logger.info(f"Found server process with PID: {PID}, killing it...")
+            # sending INT SIG to the main process will trigger graceful exit (equivalent to KeyboardInterrup)
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed thymioserver on host {c.host}")
+        time.sleep(5)
+
+        # Shutting down the physical nvidia boards if requested
+        is_shutdown = input("Do you want to shutdown the thymios? (y/n): ")
+        if is_shutdown.lower() == "y":
+            logger.info("Shutting down thymios...")
+            for c in thymios:
+                c.connect_kwargs.password = PSWD
+                c.sudo(f'shutdown -h now', warn=True, shell=False)
+                logger.info(f"Shutting down host {c.host}")
+            logger.info("Shutdown complete.")
+    else:
+        logger.info("No thymio servers started, exiting...")
 
 
 def calibrate(eye_id=-1, on_screen=False):
