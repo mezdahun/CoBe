@@ -12,6 +12,7 @@ They
 
 """
 import os
+import queue
 import time
 from datetime import datetime
 import cv2
@@ -30,7 +31,7 @@ from cobe.settings.pmodulesettings import max_abs_coord
 from cobe.settings import network, odmodel, aruco, vision, logs, pmodulesettings
 from cobe.rendering.renderingstack import RenderingStack
 from cobe.pmodule.pmodule import generate_pred_json
-from cobe.tools import cropzoomtool
+from cobe.tools import cropzoomtool, movement_tools
 
 # Setting up file logger
 import logging
@@ -143,7 +144,7 @@ class CoBeThymioMaster(object):
         logger.info(f"Starting remote control for thymio {target}.")
         thymio = self.thymios[target]["pyro_proxy"]
 
-
+        thymio.light_up_led(0, 0, 32)
         while True:
             # The event listener will be running in this block, check if buttons are pressed
             with keyboard.Events() as events:
@@ -154,6 +155,8 @@ class CoBeThymioMaster(object):
                 elif isinstance(event, keyboard.Events.Press):
                     if event.key == keyboard.Key.esc:
                         logger.info("Quitting")
+                        thymio.stop()
+                        thymio.light_up_led(0, 32, 0)
                         return
                     elif event.key == keyboard.Key.space:
                         thymio.move_forward()
@@ -183,6 +186,91 @@ class CoBeThymioMaster(object):
                         thymio.pass_time()
 
                 thymio.pass_time()
+
+    def thymio_autopilot(self, thymio_dets_queue, center_of_mass_queue):
+        """Controlling a single thymio automatically to chase the fish swarm's center of mass"""
+        if self.target_th_name is None:
+            target = "thymio_0"
+            logger.info("No target thymio specified, using thymio_0.")
+        else:
+            target = self.target_th_name
+
+        logger.info(f"Starting autopilot for thymio {target}.")
+        thymio = self.thymios[target]["pyro_proxy"]
+
+        #####
+        thymio.light_up_led(0, 0, 32)
+        prev_thymio_pos = (0, 0)
+        prev_com_pos = (0, 0)
+        while True:
+            time.sleep(0.1)
+            # get thymio detections as a list of tuples (x, y)
+            try:
+                thymio_detections = thymio_dets_queue.get_nowait()
+                print(thymio_detections)
+            except queue.Empty:
+                continue
+            # while True:
+            # get center of mass of fish swarm
+            try:
+                com_pos = center_of_mass_queue.get_nowait()
+                com_pos = com_pos[0]
+            except queue.Empty:
+                com_pos = prev_com_pos
+
+            # choosing the closest position to the previous one for tracking purpose
+            if len(thymio_detections) > 0:
+                distances = []
+                for det in thymio_detections:
+                    distances.append(np.linalg.norm(np.array(det) - np.array(prev_thymio_pos)))
+                # refusing to proceed if the closest detection is too far away
+                if np.min(distances) < 3:
+                    closest_det = thymio_detections[np.argmin(distances)]
+                else:
+                    continue
+            elif len(thymio_detections) == 0:
+                continue
+            else:
+                closest_det = thymio_detections[0]
+
+            thymio_pos = closest_det
+
+            # calculate angle of movement for thymio according to previous and current position
+            thymio_movement_vec = np.array(thymio_pos) - np.array(prev_thymio_pos)
+            print(thymio_movement_vec)
+
+            # calculate angle between thymio previous position and center of mass
+            com_dir_vec = np.array(com_pos) - np.array(prev_thymio_pos)
+            print(com_dir_vec)
+
+            # calculate closed angle
+            closed_angle = movement_tools.angle_between(thymio_movement_vec, com_dir_vec)
+            print(closed_angle)
+
+            speed = 50
+
+            # decide if thymio has to turn left or right
+            if closed_angle > 0:
+                print(f"turning right by {closed_angle} rad")
+            else:
+                print(f"turning left by {closed_angle} rad")
+
+            thymio.move_with_speed_and_angle(speed, closed_angle)
+            print(f"moving with speed {speed} and angle {closed_angle}")
+            prev_thymio_pos = thymio_pos
+            prev_com_pos = com_pos
+
+            with keyboard.Events() as events:
+                # Block at most one second
+                event = events.get(0.1)
+                if event is None:
+                    pass
+                elif isinstance(event, keyboard.Events.Press):
+                    if event.key == keyboard.Key.esc:
+                        logger.info("Stopping thymio and quitting")
+                        thymio.stop()
+                        thymio.light_up_led(0, 32, 0)
+                        return
 
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
