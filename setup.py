@@ -86,10 +86,12 @@ setup(
                             "cbp-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container",
                             "cobe-database-start=cobe.app:start_database",                                  # DATABASE
                             "cbd-start=cobe.app:start_database",                                            # DATABASE-SHORT
-                            "cobe-thymio-start=cobe.thymio.thymio:main",                                    # THYMIO
+                            "cobe-thymio-remote=cobe.app:thymio_remote_control",                            # THYMIO
                             "cobe-thymio-start-thymioserver=cobe.app:start_thymioserver",
+                            "cobe-thymio-autopilot=cobe.app:thymio_autopilot",
                             "cbt-start-thymioserver=cobe.app:start_thymioserver",                           # THYMIO-SHORT
-                            "cbt-start-remote=cobe.app:thymio_remote_control",
+                            "cbt-remote=cobe.app:thymio_remote_control",
+                            "cbt-autopilot=cobe.app:thymio_autopilot",
                             ]
     },
     classifiers=[
