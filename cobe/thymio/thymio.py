@@ -205,7 +205,7 @@ class CoBeThymio(object):
         self.left = 0
         self.right = 0
         self.move()
-        self.light_up_led(32, 0, 0)
+        # self.light_up_led(32, 0, 0)
 
     @expose
     def move_forward(self):
