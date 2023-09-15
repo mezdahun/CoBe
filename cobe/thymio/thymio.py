@@ -242,15 +242,18 @@ class CoBeThymio(object):
         Method to pass time
         """
         # check if motor values are the same on left and right
-        if self.left != self.right:
-            logger.info("Straighten!")
-            # if not, set them to the same value
-            # self.left = self.right = (self.left + self.right) / 2
-            self.left = self.left_before_turn
-            self.right = self.right_before_turn
-            self.left_before_turn = None
-            self.right_before_turn = None
-        self.move()
+        try:
+            if self.left != self.right:
+                logger.info("Straighten!")
+                # if not, set them to the same value
+                # self.left = self.right = (self.left + self.right) / 2
+                self.left = self.left_before_turn
+                self.right = self.right_before_turn
+                self.left_before_turn = None
+                self.right_before_turn = None
+            self.move()
+        except:
+            pass
 
 
 
