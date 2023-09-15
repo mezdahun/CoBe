@@ -62,7 +62,7 @@ class CoBeThymio(object):
         self.speed_increment = 50
         self.prox_val = np.array([val for val in self.network.GetVariable("thymio-II", "prox.horizontal")])
         self.prox_trh = 30
-        self.max_turning_threshold = 0.25  # between 0 and 1
+        self.max_turning_threshold = 1  # between 0 and 1
 
         self.light_up_led(0, 32, 0)
 
