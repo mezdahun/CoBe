@@ -55,10 +55,12 @@ setup(
         ]
     },
     entry_points={
-        'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",
-                            "cobe-master-start-eyeserver=cobe.app:start_eyeserver",
-                            "cobe-master-stop-eyeserver=cobe.app:stop_eyeserver",
-                            "cobe-master-start=cobe.app:main",
+        'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",                                          # EYE
+                            "cobe-vision-start-eyeserver=cobe.app:start_eyeserver",                         # VISION
+                            "cobe-vision-stop-eyeserver=cobe.app:stop_eyeserver",
+                            "cbv-stop-eyeserver=cobe.app:start_eyeserver",                                  # VISION-SHORT
+                            "cbv-start-eyeserver=cobe.app:start_eyeserver",
+                            "cobe-master-start=cobe.app:main",                                              # MASTER
                             "cobe-master-start-multieye=cobe.app:main_multieye",
                             "cobe-master-start-multieye-kalman=cobe.app:main_multieye_kalman",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
@@ -67,12 +69,28 @@ setup(
                             "cobe-master-test-stream=cobe.app:test_stream",
                             "cobe-master-collect-pngs=cobe.app:collect_pngs",
                             "cobe-master-check-crop-zoom=cobe.app:collect_pngs",
-                            "cobe-rendering-shutdown=cobe.app:shutdown_rendering",
+                            "cbm-start=cobe.app:main",                                                      # MASTER-SHORT
+                            "cbm-start-multieye=cobe.app:main_multieye",
+                            "cbm-start-multieye-kalman=cobe.app:main_multieye_kalman",
+                            "cbm-cleanup-docker=cobe.app:cleanup_inf_servers",
+                            "cbm-shutdown-eyes=cobe.app:shutdown_eyes",
+                            "cbm-calibrate=cobe.app:calibrate",
+                            "cbm-test-stream=cobe.app:test_stream",
+                            "cbm-collect-pngs=cobe.app:collect_pngs",
+                            "cbm-check-crop-zoom=cobe.app:collect_pngs",
+                            "cobe-rendering-shutdown=cobe.app:shutdown_rendering",                          # RENDERING
                             "cobe-rendering-startup=cobe.app:startup_rendering",
-                            "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",
+                            "cobe-pmodule-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",  # PMODULE
                             "cobe-pmodule-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container",
-                            "cobe-database-start=cobe.app:start_database",
-                            "cobe-thymio-start=cobe.thymio.thymio:main"]
+                            "cbp-start-docker=cobe.pmodule.pmodule:entry_start_docker_container",           # PMODULE-SHORT
+                            "cbp-stop-docker=cobe.pmodule.pmodule:entry_cleanup_docker_container",
+                            "cobe-database-start=cobe.app:start_database",                                  # DATABASE
+                            "cbd-start=cobe.app:start_database",                                            # DATABASE-SHORT
+                            "cobe-thymio-start=cobe.thymio.thymio:main",                                    # THYMIO
+                            "cobe-thymio-start-thymioserver=cobe.app:start_thymioserver",
+                            "cbt-start-thymioserver=cobe.app:start_thymioserver",                           # THYMIO-SHORT
+                            "cbt-start-remote=cobe.app:thymio_remote_control",
+                            ]
     },
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
