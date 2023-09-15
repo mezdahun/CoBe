@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 import time
 
 from cobe.cobe.cobemaster import CoBeMaster, CoBeThymioMaster, file_writer_process
@@ -392,7 +393,7 @@ def stop_eyeserver():
         time.sleep(5)
 
 
-def thymio_remote_control():
+def thymio_remote_control(thymio_id=0):
     """Starts Thymio remote control to selected thymio"""
 
     args = argparse.ArgumentParser(description="Starts the the whole stack using a single eye.")
@@ -413,6 +414,39 @@ def thymio_remote_control():
 
     thymio_controller = CoBeThymioMaster(target_thymio_name=f"thymio_{thymio_id}")
     thymio_controller.start_remote_control()
+
+def rand_filler_proc(output_queue, start_position=np.array([0, 0])):
+    """Random filler process to test queue-based processes"""
+    prev_position = start_position
+    while True:
+        random_position = np.array([random.randint(-20, 20)/20, random.randint(-20, 20)/20])
+        new_position = prev_position + random_position
+        output_queue.put([new_position])
+        print(f"putting {new_position} into queue")
+        prev_position = new_position
+        time.sleep(0.1)
+
+def thymio_autopilot():
+
+    # creating process to fill com_queue with random positions
+    com_queue = Queue()
+    filler_proc = Process(target=rand_filler_proc, args=(com_queue, np.array([0, 0]),))
+    filler_proc.start()
+
+    # cretaing process to fill thymio_queue with random positions
+    thymio_queue = Queue()
+    thymio_proc = Process(target=rand_filler_proc, args=(thymio_queue, np.array([2, -2]),))
+    thymio_proc.start()
+
+    thmyio_master = CoBeThymioMaster(target_thymio_name="thymio_0")
+    thmyio_master.thymio_autopilot(thymio_queue, com_queue)
+
+    filler_proc.terminate()
+    thymio_proc.terminate()
+    filler_proc.join()
+    thymio_proc.join()
+
+
 
 
 def start_thymioserver(th_id=None):
