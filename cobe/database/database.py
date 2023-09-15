@@ -8,7 +8,7 @@ import logging
 
 from tinyflux import TinyFlux, Point
 
-from cobe.settings import logs
+from cobe.settings import logs, pmodulesettings, database
 
 # Setting up file logger
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
@@ -70,14 +70,26 @@ def check_db_input_folder(dp_input_path, precision=4):
                         timestamp = datetime.now()
                         raw_dict[timestep] = {}
                         # looping through all prey and filling the raw_dict
+                        xs = []
+                        ys = []
                         for prey in input_data["Prey"]:
                             id = prey["ID"]
                             if id > 50:
                                 pass
                             else:
-                                raw_dict[timestep][f"x{id}"] = round(prey["x0"], precision)
-                                raw_dict[timestep][f"y{id}"] = round(prey["x1"], precision)
-                        # filling up with predator (ONLY ONE PREDATOR)
+                                x = round(prey["x0"], precision)
+                                y = round(prey["x1"], precision)
+                                xs.append(x)
+                                ys.append(y)
+                                raw_dict[timestep][f"x{id}"] = x
+                                raw_dict[timestep][f"y{id}"] = y
+
+                        # calculating center of mass
+                        COM = [round(sum(xs)/len(xs), precision), round(sum(ys)/len(ys), precision)]
+                        raw_dict[timestep][f"COMx"] = COM[0]
+                        raw_dict[timestep][f"COMy"] = COM[1]
+
+                        # filling up with predators
                         for predator in input_data["Predator"]:
                             id = predator["ID"]
                             raw_dict[timestep][f"prx{id}"] = round(predator["x0"], precision)
@@ -98,7 +110,7 @@ def check_db_input_folder(dp_input_path, precision=4):
     return raw_dict
 
 
-def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
+def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM_queue=None, predator_queue=None):
     """Daemon process that reads the database input folder and writes the data into the database"""
     # deleting all files in input folder if requested
     if with_wiping_input_folder:
@@ -117,7 +129,11 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
 
     wrote_datapoints = 0
     time_last_health = datetime.now()
-    health_freq = 10
+    time_last_autopilot = datetime.now()
+    time_last_db_push = datetime.now()
+    health_freq = database.health_freq
+    autopilot_freq = database.autopilot_freq
+    db_push_freq = database.db_push_freq
     while True:
         # check if new files are in the database input folder
         raw_dict = check_db_input_folder(db_input_folder)
@@ -126,12 +142,28 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False):
             for timestep, fields in raw_dict.items():
                 # read and remove timestamp from fields
                 timestamp = fields.pop("timestamp")
+
+                com = [[fields.pop("COMx"), fields.pop("COMy")]]
                 fields["ts"] = int(timestep)
                 p = Point(
                     time=timestamp,
                     fields=fields
                 )
-                db.insert(p, compact_key_prefixes=True)
+
+                if (timestamp - time_last_db_push).seconds >= db_push_freq:
+                    db.insert(p, compact_key_prefixes=True)
+
+                if (timestamp - time_last_autopilot).seconds >= autopilot_freq:
+                    if COM_queue is not None:
+                        COM_queue.put(com)
+                    if predator_queue is not None:
+                        num_predators = pmodulesettings.num_predators
+                        predators = []
+                        for pi in range(num_predators):
+                            predators.append([fields[f"prx{pi}"], fields[f"pry{pi}"]])
+                        predator_queue.put(predators)
+                    time_last_autopilot = datetime.now()
+
             logger.debug(f"Raw dictionary written into database {run_id}")
             wrote_datapoints += len(raw_dict)
 
