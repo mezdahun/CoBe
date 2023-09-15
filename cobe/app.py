@@ -427,25 +427,46 @@ def rand_filler_proc(output_queue, start_position=np.array([0, 0])):
         time.sleep(0.1)
 
 def thymio_autopilot():
-
     # creating process to fill com_queue with random positions
+    logger.info("Creating center of mass queue...")
     com_queue = Queue()
-    filler_proc = Process(target=rand_filler_proc, args=(com_queue, np.array([0, 0]),))
-    filler_proc.start()
+    # filler_proc = Process(target=rand_filler_proc, args=(com_queue, np.array([0, 0]),))
+    # filler_proc.start()
 
     # cretaing process to fill thymio_queue with random positions
+    logger.info("Creating thymio queue...")
     thymio_queue = Queue()
-    thymio_proc = Process(target=rand_filler_proc, args=(thymio_queue, np.array([2, -2]),))
-    thymio_proc.start()
+    # thymio_proc = Process(target=rand_filler_proc, args=(thymio_queue, np.array([2, -2]),))
+    # thymio_proc.start()
+
+    # start database process that read json files writed db and forwards them to the thymio
+    logger.info(f"Starting database daemon consuming {database.database_input_path}...")
+
+    # check if database input folder exists
+    if not os.path.exists(database.database_input_path):
+        raise FileNotFoundError(f"Database input folder {database.database_input_path} does not exist. ")
+
+    # check if input folder is empty
+    with_wipe_input = True
+
+    db_process = Process(target=database_daemon_process, args=(database.database_input_path, with_wipe_input,
+                                                               com_queue, thymio_queue,))
+    db_process.start()
+    logger.info("Database daemon started and passed com and thymio queues.")
 
     thmyio_master = CoBeThymioMaster(target_thymio_name="thymio_0")
     thmyio_master.thymio_autopilot(thymio_queue, com_queue)
 
-    filler_proc.terminate()
-    thymio_proc.terminate()
-    filler_proc.join()
-    thymio_proc.join()
+    # filler_proc.terminate()
+    # thymio_proc.terminate()
+    # filler_proc.join()
+    # thymio_proc.join()
 
+    logger.info("Autopilot stopped.")
+    logger.info("Stopping database daemon...")
+    db_process.terminate()
+    db_process.join()
+    logger.info("Database daemon stopped.")
 
 
 
