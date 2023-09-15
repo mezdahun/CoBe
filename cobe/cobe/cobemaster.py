@@ -39,6 +39,16 @@ import logging
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
 
+def get_latest_element(target_queue):
+    """Get latest element from queue without removing it"""
+    element = None
+    while True:
+        try:
+            element = target_queue.get_nowait()
+        except queue.Empty:
+            break
+    return element
+
 
 def filter_detections(detections, det_target="feet"):
     """Choosing correct detectionposition according to body parts
@@ -202,20 +212,25 @@ class CoBeThymioMaster(object):
         thymio.light_up_led(0, 0, 32)
         prev_thymio_pos = (0, 0)
         prev_com_pos = (0, 0)
+        t = 0
         while True:
-            time.sleep(0.1)
+            time.sleep(0.05)
             # get thymio detections as a list of tuples (x, y)
-            try:
-                thymio_detections = thymio_dets_queue.get_nowait()
-                print(thymio_detections)
-            except queue.Empty:
+
+            thymio_detections = get_latest_element(thymio_dets_queue)
+            if thymio_detections is None:
+                time.sleep(0.05)
                 continue
+            print(f"Queue size: {thymio_dets_queue.qsize()}")
+            print(f"Prev thymio pos: {prev_thymio_pos}")
+            print(f"Thymio detections: {thymio_detections}")
             # while True:
             # get center of mass of fish swarm
-            try:
-                com_pos = center_of_mass_queue.get_nowait()
-                com_pos = com_pos[0]
-            except queue.Empty:
+
+            com_pos = get_latest_element(center_of_mass_queue)
+            print(f"COM: {com_pos}")
+            com_pos = com_pos[0]
+            if com_pos is None:
                 com_pos = prev_com_pos
 
             # choosing the closest position to the previous one for tracking purpose
@@ -223,12 +238,20 @@ class CoBeThymioMaster(object):
                 distances = []
                 for det in thymio_detections:
                     distances.append(np.linalg.norm(np.array(det) - np.array(prev_thymio_pos)))
+
+                print(f"Distances: {distances}")
                 # refusing to proceed if the closest detection is too far away
-                if np.min(distances) < 3:
-                    closest_det = thymio_detections[np.argmin(distances)]
-                else:
-                    continue
+                closest_det = thymio_detections[np.argmin(distances)]
+                print(f"Closest det: {closest_det}")
+                # if np.min(distances) < 3:
+                #     closest_det = thymio_detections[np.argmin(distances)]
+                # else:
+                #     if t==0:
+                #         closest_det = thymio_detections[np.argmin(distances)]
+                #     else:
+                #         continue
             elif len(thymio_detections) == 0:
+                time.sleep(0.05)
                 continue
             else:
                 closest_det = thymio_detections[0]
@@ -244,33 +267,74 @@ class CoBeThymioMaster(object):
             print(com_dir_vec)
 
             # calculate closed angle
-            closed_angle = movement_tools.angle_between(thymio_movement_vec, com_dir_vec)
-            print(closed_angle)
+            try:
+                closed_angle = movement_tools.angle_between(thymio_movement_vec, com_dir_vec)
+                print(closed_angle)
 
-            speed = 50
+                if np.isnan(closed_angle):
+                    closed_angle = 0
+            except:
+                time.sleep(0.05)
+                continue
 
-            # decide if thymio has to turn left or right
-            if closed_angle > 0:
-                print(f"turning right by {closed_angle} rad")
-            else:
-                print(f"turning left by {closed_angle} rad")
+            speed = 375
+            print(f"closed angle before: {closed_angle}")
+            # match direction standard
+            closed_angle = -closed_angle
 
-            thymio.move_with_speed_and_angle(speed, closed_angle)
-            print(f"moving with speed {speed} and angle {closed_angle}")
+            thymio.move_with_speed_and_angle(speed, closed_angle*0.225)
+            logger.info(f"moving with speed {speed} and angle {closed_angle}")
+
+            print(f"update thymio prev position: {thymio_pos}")
             prev_thymio_pos = thymio_pos
+
             prev_com_pos = com_pos
 
+            # The event listener will be running in this block, check if buttons are pressed
             with keyboard.Events() as events:
                 # Block at most one second
-                event = events.get(0.1)
+                event = events.get(0.5)
                 if event is None:
                     pass
                 elif isinstance(event, keyboard.Events.Press):
                     if event.key == keyboard.Key.esc:
-                        logger.info("Stopping thymio and quitting")
+                        logger.info("Quitting")
                         thymio.stop()
                         thymio.light_up_led(0, 32, 0)
                         return
+
+                #     elif event.key == keyboard.Key.space:
+                #         thymio.move_forward()
+                #         logger.info("Moving forward")
+                #         thymio.pass_time()
+                #     elif event.key == keyboard.Key.down:
+                #         thymio.slow_down()
+                #         logger.info("Slowing down")
+                #         thymio.pass_time()
+                #     elif event.key == keyboard.Key.up:
+                #         thymio.speed_up()
+                #         logger.info("Speeding up")
+                #         thymio.pass_time()
+                #     elif event.key == keyboard.Key.left:
+                #         thymio.turn_left()
+                #         logger.info("Turning left")
+                #         continue
+                #     elif event.key == keyboard.Key.right:
+                #         thymio.turn_right()
+                #         logger.info("Turning right")
+                #         continue
+                #     elif event.key == keyboard.Key.enter:
+                #         thymio.stop()
+                #         logger.info("Stopping")
+                #         thymio.pass_time()
+                #     else:
+                #         thymio.pass_time()
+                #
+                # thymio.pass_time()
+            # else:
+            #     print("No new detection, passing time")
+
+            t += 1
 
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
@@ -792,7 +856,7 @@ class CoBeMaster(object):
         sum_inf_time = 0
         try:
             try:
-                logger.info("CoBe has been started! Press ENTER long to quit.")
+                logger.info("CoBe has been started! Press F1 to change detection target and F2 quit.")
                 for frid in range(t_max):
                     logger.debug(f"Frame {frid}")
                     for eye_name, eye_dict in self.eyes.items():
@@ -901,10 +965,10 @@ class CoBeMaster(object):
                                         event = events.get(0.001)
                                         if event is None:
                                             pass
-                                        elif event.key == keyboard.Key.enter:
+                                        elif event.key == keyboard.Key.f2:
                                             logger.info("Quitting requested by user. Exiting...")
                                             return
-                                        elif event.key == keyboard.Key.up:
+                                        elif event.key == keyboard.Key.f1:
                                             if det_target == "thymio":
                                                 det_target = "stick"
                                             elif det_target == "stick":
