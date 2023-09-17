@@ -125,6 +125,7 @@ def generate_pred_json(position_list):
     # generating filename with timestamp
     filename = ps.predator_filename
 
+    id = None
     # generating list of predator dictionaries
     output_list = []
     for id, position in enumerate(position_list):
@@ -138,12 +139,17 @@ def generate_pred_json(position_list):
 
     # filling list with dummy predators if necessary
     while len(output_list) < ps.num_predators:
+        if id is None:
+            print("No predators found, filling with dummy predators")
+            print(f"output_list: {output_list}")
+            id = 0
+            position = [0, 0]
         output_list.append({
-            "ID": len(output_list),
+            "ID": id,
             "v0": 0,
             "v1": 0,
-            "x0": -3000,
-            "x1": -3000
+            "x0": position[0],
+            "x1": position[1]
         })
 
     # writing to file with json.dump

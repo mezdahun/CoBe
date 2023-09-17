@@ -58,14 +58,15 @@ setup(
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",                                          # EYE
                             "cobe-vision-start-eyeserver=cobe.app:start_eyeserver",                         # VISION
                             "cobe-vision-stop-eyeserver=cobe.app:stop_eyeserver",
+                            "cobe-vision-calibrate=cobe.app:calibrate",
                             "cbv-stop-eyeserver=cobe.app:start_eyeserver",                                  # VISION-SHORT
                             "cbv-start-eyeserver=cobe.app:start_eyeserver",
+                            "cbv-calibrate=cobe.app:calibrate",
                             "cobe-master-start=cobe.app:main",                                              # MASTER
                             "cobe-master-start-multieye=cobe.app:main_multieye",
                             "cobe-master-start-multieye-kalman=cobe.app:main_multieye_kalman",
                             "cobe-master-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cobe-master-shutdown-eyes=cobe.app:shutdown_eyes",
-                            "cobe-master-calibrate=cobe.app:calibrate",
                             "cobe-master-test-stream=cobe.app:test_stream",
                             "cobe-master-collect-pngs=cobe.app:collect_pngs",
                             "cobe-master-check-crop-zoom=cobe.app:collect_pngs",
@@ -74,7 +75,6 @@ setup(
                             "cbm-start-multieye-kalman=cobe.app:main_multieye_kalman",
                             "cbm-cleanup-docker=cobe.app:cleanup_inf_servers",
                             "cbm-shutdown-eyes=cobe.app:shutdown_eyes",
-                            "cbm-calibrate=cobe.app:calibrate",
                             "cbm-test-stream=cobe.app:test_stream",
                             "cbm-collect-pngs=cobe.app:collect_pngs",
                             "cbm-check-crop-zoom=cobe.app:collect_pngs",
