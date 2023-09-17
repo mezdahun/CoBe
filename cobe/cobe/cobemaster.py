@@ -39,15 +39,20 @@ import logging
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
 
-def get_latest_element(target_queue):
+def get_latest_element(target_queue, with_print=False):
     """Get latest element from queue without removing it"""
-    element = None
-    while True:
+    if with_print:
+        print(target_queue.qsize())
+    val = None
+    for i in range(target_queue.qsize()):
         try:
-            element = target_queue.get_nowait()
+            val = target_queue.get_nowait()
+            if with_print:
+                print(f"Got {val} from queue.")
         except queue.Empty:
-            break
-    return element
+            return val
+
+    return val
 
 
 def filter_detections(detections, det_target="feet"):
