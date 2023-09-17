@@ -7,11 +7,11 @@ from cobe.cobe.cobemaster import CoBeMaster, CoBeThymioMaster, file_writer_proce
 from cobe.database.database import database_daemon_process
 from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
-from cobe.settings import network, database
+from cobe.settings import network, database, pmodulesettings
 import logging
 from cobe.settings import logs
 from multiprocessing import Process, Queue
-from cobe.kalmanprocess.kalmanprocess import kalman_process_OD
+from cobe.kalmanprocess.kalmanprocess import kalman_process_OD, kalman_process_OD_multipred
 import numpy as np
 from datetime import datetime
 
@@ -134,7 +134,10 @@ def main_multieye_kalman():
     # Creating common queue to push detections
     pred_queue = Queue()
     # Creating kalman process to run in different thread
-    kalman_process = Process(target=kalman_process_OD, args=(pred_queue, None,))
+    if pmodulesettings.num_predators == 1:
+        kalman_process = Process(target=kalman_process_OD, args=(pred_queue, None,))
+    else:
+        kalman_process = Process(target=kalman_process_OD_multipred, args=(pred_queue, None, ))
 
     # Creating process to run different eyes in different threads
     master = CoBeMaster(pswd=pswd)

@@ -1,4 +1,5 @@
 """Kalman filtering od values to provide a smoother predator trajectory"""
+import copy
 
 import numpy as np
 import logging
@@ -7,7 +8,7 @@ from scipy.linalg import block_diag
 from filterpy.common import Q_discrete_white_noise
 
 from cobe.pmodule.pmodule import generate_pred_json
-from cobe.settings import logs
+from cobe.settings import logs, pmodulesettings
 
 # Setting up file logger
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
@@ -325,7 +326,130 @@ def kalman_process_OD(od_position_queue, output_queue):
                 generate_pred_json([(x[0], y[0])])
 
 
+def kalman_process_OD_multipred(od_position_queue, output_queue):
+    """Main Kalman-filtering process running in separate thread, getting object detection values from the passed queue.
+    The queue is filled by the object detection process, which is running in a separate thread. The elements pushed to the queue
+    contain:
+    - timestamp of capture
+    - timestamp of pushing in queue
+    - x, y coordinate of predator as tuple
+    implementation according to: https://cocalc.com/share/public_paths/7557a5ac1c870f1ec8f01271959b16b49df9d087/08-Designing-Kalman-Filters.ipynb
+    if output_queue is not None, the kalman process will push the predicted positions to the output queue otherwise writen to the pred.json file"""
 
+
+    # Parameters
+    process_freq = klmp.process_freq  # frequency of process in Hz
+    process_noise_var = klmp.process_noise_var  # variance of process noise
+    measurement_noise_var = klmp.measurement_noise_var  # variance of measurement noise (in simulation space 20 x 20)
+
+
+    dt = 1 / process_freq  # time between process runs
+    # initialize Kalman filter
+    tracker = KalmanFilter(dim_x=4, dim_z=2)
+
+
+    # state variables are [x, vx, y, vy]
+    # initialize state transition function
+    tracker.F = np.array([[1, dt, 0, 0],
+                          [0, 1, 0, 0],
+                          [0, 0, 1, dt],
+                          [0, 0, 0, 1]])
+
+    # assuming independent x and y noise for process noise matrix
+    q = Q_discrete_white_noise(dim=2, dt=dt, var=process_noise_var)
+    tracker.Q = block_diag(q, q)
+
+    # initialize measurement function (only x and y coordinates are measured)
+    tracker.H = np.array([[1, 0, 0, 0],
+                          [0, 0, 1, 0]])
+
+    # initialize measurement noise matrix in 2 D
+    tracker.R = np.array([[measurement_noise_var, 0],
+                          [0, measurement_noise_var]])
+
+    # initial conditions
+    tracker.x = np.array([[0, 0, 0, 0]]).T
+    # uncertainty of initial conditions
+    tracker.P = np.eye(4) * 500.
+
+    # initializing timer
+    x = 0
+    y = 0
+    vx = 0
+    vy = 0
+    t_last_predict = t_last_groundtruth = datetime.now()
+
+    # initialize filter parameters
+    trackers = []
+    ods = []
+    while len(trackers) < pmodulesettings.num_predators:
+        trackers.append(copy.deepcopy(tracker))
+
+    ts_since_last_predict = np.zeros(len(trackers))
+    while True:
+        # try to get element from queue
+        try:
+            while od_position_queue.qsize() > 1:
+                od_position_queue.get_nowait()
+            od_element = od_position_queue.get_nowait()
+            # (tcap_str, tpush, pred_positions) = od_element
+            # generate_pred_json(pred_positions)
+        except Empty:
+            od_element = None
+
+        # if element is not None, process it
+        if od_element is not None:
+            (tcap_str, tpush, pred_positions) = od_element
+            t_last_groundtruth = datetime.now()
+            logger.info(f"Kalman process: received element from queue: {od_element}")
+            # for each point we find the closest tracker and update it
+            for pred_position in pred_positions:
+                # find closest tracker
+                dists = [np.linalg.norm(np.array([x[0], y[0]]) - np.array([pred_position[0], pred_position[1]])) for x, vx, y, vy in
+                            [tracker.x for tracker in trackers]]
+                closest_tracker = np.argmin(dists)
+                logger.info(f"Kalman process: closest tracker: {closest_tracker}")
+                # update closest tracker
+                trackers[closest_tracker].update(np.array([pred_position[0], pred_position[1]]))
+
+
+        if (datetime.now() - t_last_predict).total_seconds() > 1 / process_freq:
+            output = []
+            output_json = []
+            for tri, tracker in enumerate(trackers):
+
+                # if no element is received, predict
+                tracker.predict()
+                (x, vx, y, vy) = tracker.x
+                # check if tracker is still in the simulation space
+                if np.abs(x) > pmodulesettings.max_abs_coord*1.5 or np.abs(y) > pmodulesettings.max_abs_coord*1.5:
+                    # wiping tracker
+                    tracker.x = np.array([[0, 0, 0, 0]]).T
+                    tracker.P = np.eye(4) * 500.
+
+                ts_since_last_predict[tri] += 1
+
+                try:
+                    output.append((x, y))
+                    output_json.append((float(x[0]), float(y[0])))
+                except:
+                    pass
+            t_last_predict = datetime.now()
+
+            logger.debug(f"Kalman process: predicted values: x: {x}, y: {y}, vx: {vx}, vy: {vy}")
+
+
+            # check if output queue is not None, if so push predicted values to output queue
+            if output_queue is not None:
+                logger.debug(f"Kalman process: output queue is not None, push predicted values to output queue")
+                t_put = datetime.now()
+                output_queue.put((t_put, output))
+            else:
+                # logger.info([(x, y)])
+                if len(output_json) > 0:
+                    print(f"output_json: {output_json}")
+                    logger.debug(f"Kalman process: output queue is None, write predicted values to json file")
+                    generate_pred_json(output_json)
 
 
 
