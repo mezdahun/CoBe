@@ -1470,8 +1470,9 @@ class CoBeCalib(object):
             return calibration_image
 
 
-def file_writer_process(input_queue):
+def file_writer_process(input_queue, with_averaging=False, averaging_window=2):
     from queue import Empty
+    pred_memory = []
     while True:
         # try to get element from queue
         try:
@@ -1479,6 +1480,33 @@ def file_writer_process(input_queue):
                 input_queue.get_nowait()
             od_element = input_queue.get_nowait()
             (tcap_str, tpush, pred_positions) = od_element
+
+            if with_averaging:
+                pred_memory.append(pred_positions)
+                pred_positions_new = []
+
+                for pred_position in pred_positions:
+                    # finding the closest detection in each memory element and taking average over them
+                    num_average = 1
+                    average = np.array(pred_position)
+                    for memory in pred_memory:
+                        if len(memory) == 0:
+                            continue
+                        closest_detection = np.argmin(np.array([np.linalg.norm(np.array(m) - np.array(pred_position)) for m in memory]))
+                        # if the closest detection is too far away we simply don't take it in the average
+                        if np.linalg.norm(np.array(memory[closest_detection]) - np.array(pred_position)) > 1:
+                            continue
+                        average += np.array(memory[closest_detection])
+                        num_average += 1
+
+                    average /= num_average
+                    pred_positions_new.append(average)
+
+                if len(pred_memory) > averaging_window:
+                    pred_memory.pop(0)
+
+                pred_positions = pred_positions_new
+
             generate_pred_json(pred_positions)
         except Empty:
             pass
