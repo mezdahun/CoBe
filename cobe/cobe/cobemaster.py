@@ -202,7 +202,13 @@ class CoBeThymioMaster(object):
 
                 thymio.pass_time()
 
-    def thymio_autopilot(self, thymio_dets_queue, center_of_mass_queue):
+    def stop_thymios(self):
+        """Setting thymio velocities to zero and turn them green"""
+        for th_name, th_data in self.thymios.items():
+            th_data["pyro_proxy"].stop()
+            th_data["pyro_proxy"].light_up_led(0, 32, 0)
+
+    def thymio_autopilot(self, thymio_dets_queue, center_of_mass_queue, with_keyboard=True):
         """Controlling a single thymio automatically to chase the fish swarm's center of mass"""
         if self.target_th_name is None:
             target = "thymio_0"
@@ -216,15 +222,40 @@ class CoBeThymioMaster(object):
         #####
         thymio.light_up_led(0, 0, 32)
         prev_thymio_pos = (0, 0)
+        update_thymio_pos_in = np.random.randint(0, 5)
+        last_pos_update = 0
         prev_com_pos = (0, 0)
+        border = pmodulesettings.max_abs_coord
+        centralization_border = border * 0.85
+        mode = "chase"  # "chase" or "centralize" or "explore"
+
+        chase_distance = 0.45  # percent of arena
+
+        turning_precision_chase = 0.225
+
+        turning_precision_centralize = 0.95
+        break_centralize_percent = 0.85
+
+        swarm_center_threshold = 7
+        turning_precision_chase_center = 0.16
+
+
+        prev_thymio_movement_vec = (0, 0)
+
+        max_turning = 0.3
+        max_speed = 275
+
         t = 0
+        center_target = (0, 0)
+        explore_target = (0, 0)
+        num_jitters = 0
         while True:
             time.sleep(0.05)
             # get thymio detections as a list of tuples (x, y)
 
             thymio_detections = get_latest_element(thymio_dets_queue)
             if thymio_detections is None:
-                time.sleep(0.05)
+                #time.sleep(0.05)
                 continue
             print(f"Queue size: {thymio_dets_queue.qsize()}")
             print(f"Prev thymio pos: {prev_thymio_pos}")
@@ -233,10 +264,11 @@ class CoBeThymioMaster(object):
             # get center of mass of fish swarm
 
             com_pos = get_latest_element(center_of_mass_queue)
-            print(f"COM: {com_pos}")
-            com_pos = com_pos[0]
             if com_pos is None:
                 com_pos = prev_com_pos
+            else:
+                print(f"COM: {com_pos}")
+                com_pos = com_pos[0]
 
             # choosing the closest position to the previous one for tracking purpose
             if len(thymio_detections) > 0:
@@ -248,14 +280,9 @@ class CoBeThymioMaster(object):
                 # refusing to proceed if the closest detection is too far away
                 closest_det = thymio_detections[np.argmin(distances)]
                 print(f"Closest det: {closest_det}")
-                # if np.min(distances) < 3:
-                #     closest_det = thymio_detections[np.argmin(distances)]
-                # else:
-                #     if t==0:
-                #         closest_det = thymio_detections[np.argmin(distances)]
-                #     else:
-                #         continue
+
             elif len(thymio_detections) == 0:
+                print("No detections")
                 time.sleep(0.05)
                 continue
             else:
@@ -263,13 +290,87 @@ class CoBeThymioMaster(object):
 
             thymio_pos = closest_det
 
+            # check distance to center of mass
+            distance_to_com = np.linalg.norm(np.array(thymio_pos) - np.array(com_pos))
+            print(f"Distance to COM: {distance_to_com}")
+
+            # if the thymio is close enough to the center of mass, it will start chasing the fish
+            if distance_to_com < chase_distance * pmodulesettings.max_abs_coord * 2:
+                if mode == "explore":
+                    # if the thymio is close enough to the center of mass, it will start chasing the fish
+                    mode = "chase"
+                    logger.info("Chasing fish")
+                    thymio.light_up_led(0, 0, 32)
+                elif mode == "centralize":
+                    # if the thymio is not close to the border anymore, it will start chasing the fish
+                    if np.linalg.norm(np.array(thymio_pos)) < border*break_centralize_percent:
+                        mode = "chase"
+                        logger.info("Chasing fish")
+                        thymio.light_up_led(0, 0, 32)
+                elif mode == "chase":
+                    if distance_to_com < swarm_center_threshold:
+                        turning_precision = turning_precision_chase_center
+
+            else:
+                if mode == "chase":
+                    # otherwise it explores the arena
+                    mode = "explore"
+                    logger.info("Exploring arena")
+                    thymio.light_up_led(32, 0, 32)
+                    explore_target = (np.random.uniform(-border, border), np.random.uniform(-border, border))
+                    logger.info(f"Selecting random target point: {com_pos}")
+                elif mode == "explore":
+                    if np.linalg.norm(np.array(thymio_pos) - np.array(com_pos)) < 0.1 * pmodulesettings.max_abs_coord:
+                        # if the thymio is close enough to the target point, it will select another one
+                        com_pos = (np.random.uniform(-border, border), np.random.uniform(-border, border))
+                        logger.info(f"Selecting random target point: {com_pos}")
+
+            # If the thymio is currently at the border, it will aim back towards the center of the arena instead of
+            # the center of mass of the fish swarm
+            # if thymio_pos[0] > border or thymio_pos[0] < -border or thymio_pos[1] > border or thymio_pos[1] < -border:
+            print(f"norm: {np.linalg.norm(np.array(thymio_pos))}")
+            if np.linalg.norm(np.array(thymio_pos)) > border:
+                if mode in ["chase", "explore"]:
+                    mode = "centralize"
+                    logger.info("Centralizing Thymio as it reached border during chase")
+                    thymio.light_up_led(32, 32, 32)
+                    # random choice between one of the corners
+                    # check in which quadrant the robot is and select the opposite corner
+                    if thymio_pos[0] > 0:
+                        if thymio_pos[1] > 0:
+                            center_target = (-border * 0.5, -border * 0.5)
+                        else:
+                            center_target = (-border * 0.5, border * 0.5)
+                    else:
+                        if thymio_pos[1] > 0:
+                            center_target = (border * 0.5, -border * 0.5)
+                        else:
+                            center_target = (border * 0.5, border * 0.5)
+                    # center_target = (np.random.choice([-1, 1]) * border * 0.5, np.random.choice([-1, 1]) * border * 0.5)
+                    logger.info(f"Selecting random target point: {center_target}")
+            # check if the thymio is in the 10% radius range of center of the arena to start exploring / chasing the fish again
+            elif np.linalg.norm(np.array(thymio_pos) - np.array(center_target)) < pmodulesettings.max_abs_coord * 0.1:
+                if mode == "centralize":
+                    mode = "chase"
+                    logger.info("Chasing fish again as Thymio reached center of arena during centralization")
+                    thymio.light_up_led(0, 0, 32)
+
+            if mode == "centralize":
+                # changing the target position to the center of the arena if centralizing
+                com_pos = center_target
+                turning_precision = turning_precision_centralize
+            elif mode == "chase":
+                turning_precision = turning_precision_chase
+            elif mode == "explore":
+                com_pos = explore_target
+                turning_precision = turning_precision_chase
+
+
             # calculate angle of movement for thymio according to previous and current position
             thymio_movement_vec = np.array(thymio_pos) - np.array(prev_thymio_pos)
-            print(thymio_movement_vec)
 
             # calculate angle between thymio previous position and center of mass
             com_dir_vec = np.array(com_pos) - np.array(prev_thymio_pos)
-            print(com_dir_vec)
 
             # calculate closed angle
             try:
@@ -279,65 +380,61 @@ class CoBeThymioMaster(object):
                 if np.isnan(closed_angle):
                     closed_angle = 0
             except:
+                print("Error in angle calculation")
                 time.sleep(0.05)
                 continue
 
-            speed = 375
+            speed = max_speed
             print(f"closed angle before: {closed_angle}")
             # match direction standard
             closed_angle = -closed_angle
 
-            thymio.move_with_speed_and_angle(speed, closed_angle*0.225)
-            logger.info(f"moving with speed {speed} and angle {closed_angle}")
-
             print(f"update thymio prev position: {thymio_pos}")
-            prev_thymio_pos = thymio_pos
+            # check if the position is coming from a jitter
+            if t > 1:
+                # check if the direction of movement has opposite signs
+                # if np.sign(prev_thymio_movement_vec[0]) != np.sign(thymio_movement_vec[0]) and np.sign(prev_thymio_movement_vec[1]) != np.sign(thymio_movement_vec[1]):
+                #     print("Jitter detected, ignoring position")
+                #     num_jitters += 1
+                #     print(f"num jitters: {num_jitters}")
+                # if movement_tools.angle_between(prev_thymio_movement_vec, thymio_movement_vec) < 0:
+                #     print(f"Jitter detected with angle: {movement_tools.angle_between(prev_thymio_movement_vec, thymio_movement_vec)}")
+                #     num_jitters += 1
+                #     print(f"num jitters: {num_jitters}")
+                # else:
+                logger.info(f"Did not detect jitter with angle {movement_tools.angle_between(prev_thymio_movement_vec, thymio_movement_vec)}")
+                if np.abs(t-last_pos_update) >= update_thymio_pos_in:
+                    logger.info("Updating Thymio position")
+                    prev_thymio_pos = thymio_pos
+                    last_pos_update = t
+                    update_thymio_pos_in = 1
+                prev_thymio_movement_vec = thymio_movement_vec
+
+
+            if mode in ["chase", "explore"]:
+                final_turning = np.sign(closed_angle) * min(max_turning, abs(closed_angle * turning_precision))
+                thymio.move_with_speed_and_angle(speed, float(final_turning))
+            else:
+                final_turning = np.sign(closed_angle) * min(1, abs(closed_angle))
+                thymio.move_with_speed_and_angle(speed, float(final_turning))
+
+            logger.info(f"moving with speed {speed} and angle {closed_angle}->{final_turning}")
 
             prev_com_pos = com_pos
 
             # The event listener will be running in this block, check if buttons are pressed
-            with keyboard.Events() as events:
-                # Block at most one second
-                event = events.get(0.5)
-                if event is None:
-                    pass
-                elif isinstance(event, keyboard.Events.Press):
-                    if event.key == keyboard.Key.esc:
-                        logger.info("Quitting")
-                        thymio.stop()
-                        thymio.light_up_led(0, 32, 0)
-                        return
-
-                #     elif event.key == keyboard.Key.space:
-                #         thymio.move_forward()
-                #         logger.info("Moving forward")
-                #         thymio.pass_time()
-                #     elif event.key == keyboard.Key.down:
-                #         thymio.slow_down()
-                #         logger.info("Slowing down")
-                #         thymio.pass_time()
-                #     elif event.key == keyboard.Key.up:
-                #         thymio.speed_up()
-                #         logger.info("Speeding up")
-                #         thymio.pass_time()
-                #     elif event.key == keyboard.Key.left:
-                #         thymio.turn_left()
-                #         logger.info("Turning left")
-                #         continue
-                #     elif event.key == keyboard.Key.right:
-                #         thymio.turn_right()
-                #         logger.info("Turning right")
-                #         continue
-                #     elif event.key == keyboard.Key.enter:
-                #         thymio.stop()
-                #         logger.info("Stopping")
-                #         thymio.pass_time()
-                #     else:
-                #         thymio.pass_time()
-                #
-                # thymio.pass_time()
-            # else:
-            #     print("No new detection, passing time")
+            if with_keyboard:
+                with keyboard.Events() as events:
+                    # Block at most one second
+                    event = events.get(0.5)
+                    if event is None:
+                        pass
+                    elif isinstance(event, keyboard.Events.Press):
+                        if event.key == keyboard.Key.f2:
+                            logger.info("Quitting")
+                            thymio.stop()
+                            thymio.light_up_led(0, 32, 0)
+                            return
 
             t += 1
 
