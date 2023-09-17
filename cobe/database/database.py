@@ -134,6 +134,7 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
     health_freq = database.health_freq
     autopilot_freq = database.autopilot_freq
     db_push_freq = database.db_push_freq
+    t = 0
     while True:
         # check if new files are in the database input folder
         raw_dict = check_db_input_folder(db_input_folder)
@@ -153,7 +154,7 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
                 if (timestamp - time_last_db_push).seconds >= db_push_freq:
                     db.insert(p, compact_key_prefixes=True)
 
-                if (timestamp - time_last_autopilot).seconds >= autopilot_freq:
+                if t % 2 == 0:
                     if COM_queue is not None:
                         COM_queue.put(com)
                     if predator_queue is not None:
@@ -162,7 +163,7 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
                         for pi in range(num_predators):
                             predators.append([fields[f"prx{pi}"], fields[f"pry{pi}"]])
                         predator_queue.put(predators)
-                    time_last_autopilot = datetime.now()
+                # time_last_autopilot = datetime.now()
 
             logger.debug(f"Raw dictionary written into database {run_id}")
             wrote_datapoints += len(raw_dict)
@@ -180,3 +181,4 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
             logger.info(f"New database created: {db_path}")
 
         time.sleep(0.01)
+        t += 1
