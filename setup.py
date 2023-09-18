@@ -92,6 +92,7 @@ setup(
                             "cbt-start-thymioserver=cobe.app:start_thymioserver",                           # THYMIO-SHORT
                             "cbt-remote=cobe.app:thymio_remote_control",
                             "cbt-autopilot=cobe.app:thymio_autopilot",
+                            "cbmeta-start=cobe.metaprotocols:single_human"                     # METAPROTOCOLS
                             ]
     },
     classifiers=[

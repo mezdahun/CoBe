@@ -1,3 +1,4 @@
+import os
 # folder on host where PModule is located
 root_folder = "C:\\Users\\David\\Documents\\predprey_batches"
 
@@ -48,9 +49,9 @@ predator_filename = "out_pred.json"
 
 # default values
 sim_dt = 0.02
-batch_size = 5  #50
-center_pull_radius = 20  #90
-num_prey = 50  # 100
+batch_size = int(os.environ.get("PM_BATCH_SIZE", 8))           # thymios 1, stick - 6-8
+center_pull_radius = float(os.environ.get("PM_CENTER_PULL_RADIUS", 20))  # thymios 17, stick - 20
+num_prey = 50  #100
 repulsion_range = 1
 repulsion_steepness = -4
 repulsion_strength = 2
@@ -61,6 +62,6 @@ flee_angle = 0.523599
 flee_steepness = 1
 flee_range = 10
 noise_strength = 0.2
-num_predators = 1
+num_predators = int(os.environ.get("PM_NUM_PREDATORS", 1))        # single stick-1, multiplayer-2
 
 
