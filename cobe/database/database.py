@@ -48,7 +48,7 @@ def check_db_input_folder(dp_input_path, precision=4):
         raise FileNotFoundError(f"Database input folder {dp_input_path} does not exist")
 
     # check if folder is empty
-    if not os.listdir(dp_input_path):
+    if not len(os.listdir(dp_input_path)) > 3:
         logging.debug(f"Database input folder {dp_input_path} is empty")
         return None
 
@@ -59,7 +59,11 @@ def check_db_input_folder(dp_input_path, precision=4):
                         key=os.path.getctime)
     logger.debug(f"Newest json file in folder is {newest_file}")
 
-    for fi, file in enumerate(os.listdir(dp_input_path)):
+    logger.debug(f"Found the following files: \n{os.listdir(dp_input_path)}")
+
+    # for fi, file in enumerate(os.listdir(dp_input_path)):
+    while len(os.listdir(dp_input_path)) > 3:
+        file = os.listdir(dp_input_path)[0]
         logger.debug(f"Checking file {file}, is newest={os.path.join(dp_input_path, file) == newest_file}")
         filename, file_extension = os.path.splitext(file)
 
