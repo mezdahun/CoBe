@@ -54,14 +54,17 @@ def check_db_input_folder(dp_input_path, precision=4):
 
     # read all files in folder with json
     raw_dict = {}
+    # getting the filename of the newest json file in the folder
+    newest_file = max([os.path.join(dp_input_path, f) for f in os.listdir(dp_input_path) if f.endswith(".json")],
+                        key=os.path.getctime)
+    logger.debug(f"Newest json file in folder is {newest_file}")
+
     for fi, file in enumerate(os.listdir(dp_input_path)):
+        logger.debug(f"Checking file {file}, is newest={os.path.join(dp_input_path, file) == newest_file}")
         filename, file_extension = os.path.splitext(file)
-        logger.debug(f"Reading file {file}")
 
-        # check if the file is the newest in the list
-        file_age = time.time() - os.path.getmtime(os.path.join(dp_input_path, file))
-
-        if file_extension == ".json":
+        if file_extension == ".json" and os.path.join(dp_input_path, file) != newest_file:
+            logger.debug(f"Consuming file {file}")
             if os.path.isfile(os.path.join(dp_input_path, file)) and os.access(os.path.join(dp_input_path, file), os.R_OK):
                 try:
                     with open(os.path.join(dp_input_path, file), "r") as f:
@@ -103,7 +106,8 @@ def check_db_input_folder(dp_input_path, precision=4):
 
                 except Exception as e:
                     logger.error(f"Error while reading file {file}: {e}")
-
+        else:
+            logger.debug(f"File {file} is not a json file or is the newest file, skipping...")
 
 
     logging.debug("Read files into raw dicitonary, forwarding to database writer...")
