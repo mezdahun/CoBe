@@ -28,7 +28,7 @@ from scipy.interpolate import Rbf
 from pynput import keyboard
 
 from cobe.settings.pmodulesettings import max_abs_coord
-from cobe.settings import network, odmodel, aruco, vision, logs, pmodulesettings
+from cobe.settings import network, odmodel, aruco, vision, logs, pmodulesettings, master_settings
 from cobe.rendering.renderingstack import RenderingStack
 from cobe.pmodule.pmodule import generate_pred_json
 from cobe.tools import cropzoomtool, movement_tools
@@ -469,7 +469,13 @@ class CoBeMaster(object):
                     break
 
         if ask_for_pswd:
-            nano_password = getpass("Please enter password for nanos: ")
+
+            if master_settings.master_pass is None:
+                nano_password = getpass("Provide master password:")
+            else:
+                logger.info("Master pass provided via env variable, using it...")
+                nano_password = master_settings.master_pass
+
             for eye_name, eye_dict in self.eyes.items():
                 eye_dict["pyro_proxy"].set_pswd(nano_password)
         elif pswd is not None:

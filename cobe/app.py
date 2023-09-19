@@ -9,7 +9,7 @@ from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
 from cobe.settings import network, database, pmodulesettings
 import logging
-from cobe.settings import logs
+from cobe.settings import logs, master_settings
 from multiprocessing import Process, Queue
 from cobe.kalmanprocess.kalmanprocess import kalman_process_OD, kalman_process_OD_multipred
 import numpy as np
@@ -129,8 +129,12 @@ def main_multieye_kalman():
         logger.info(f"No detection target provided. Using 'stick' as default.")
         det_targ = "stick"
 
+    if master_settings.master_pass is None:
+        pswd = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        pswd = master_settings.master_pass
 
-    pswd = getpass("Provide master password:")
     # Creating common queue to push detections
     pred_queue = Queue()
     # Creating kalman process to run in different thread
@@ -190,7 +194,12 @@ def main_multieye():
         logger.info(f"No detection target provided. Using 'stick' as default.")
         det_targ = "stick"
 
-    pswd = getpass("Provide master password:")
+    if master_settings.master_pass is None:
+        pswd = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        pswd = master_settings.master_pass
+
     # Creating common queue to push detections
     pred_queue = Queue()
     # Creating kalman process to run in different thread
@@ -272,7 +281,12 @@ def start_eyeserver(eye_id=None):
         eye_ids = [eye['expected_id'] for eye in network.eyes.values()]
 
     logger.info("Starting eye servers...")
-    PSWD = getpass('sudo password to start eyeservers: ')
+    if master_settings.master_pass is None:
+        PSWD = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        PSWD = master_settings.master_pass
+
     eye_ips = [eye['host'] for eye in network.eyes.values() if eye['expected_id'] in eye_ids]
     config = Config(overrides={'sudo': {'password': PSWD}})
     eyes = Group(*eye_ips, user=network.nano_username, config=config)
@@ -372,7 +386,13 @@ def stop_eyeserver():
     """Stops the pyro eyeserver on the eyes defined by settins.network via fabric. Can be used when
     eyeserver keeps running in the background blocking new connections"""
     logger.info("Stopping eye servers...")
-    PSWD = getpass('sudo password to start eyeservers: ')
+
+    if master_settings.master_pass is None:
+        PSWD = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        PSWD = master_settings.master_pass
+
     eye_ips = [eye['host'] for eye in network.eyes.values()]
     config = Config(overrides={'sudo': {'password': PSWD}})
     eyes = Group(*eye_ips, user=network.nano_username, config=config)
@@ -493,7 +513,13 @@ def start_thymioserver(th_id=None):
         th_ids = [th['expected_id'] for th in network.thymios.values()]
 
     logger.info("Starting thymio servers...")
-    PSWD = getpass('sudo password to start thymio servers: ')
+
+    if master_settings.master_pass is None:
+        PSWD = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        PSWD = master_settings.master_pass
+
     th_ips = [thymio['host'] for thymio in network.thymios.values() if thymio['expected_id'] in th_ids]
     config = Config(overrides={'sudo': {'password': PSWD}})
     thymios = Group(*th_ips, user=network.pi_username, config=config)
