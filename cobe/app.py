@@ -88,6 +88,10 @@ def start_database():
 
     logger.info(f"Starting database daemon consuming {database.database_input_path}...")
 
+    silent = bool(int(float(os.environ.get("DATABASE_DAEMON_SILENT", 0))))
+    if silent:
+        logger.info("Database daemon will not ask anything from user as started in silent mode...")
+
     # check if database input folder exists
     if not os.path.exists(database.database_input_path):
         raise FileNotFoundError(f"Database input folder {database.database_input_path} does not exist. ")
@@ -99,15 +103,23 @@ def start_database():
     else:
         with_wipe_input = False
 
+    if silent:
+        with_wipe_input = True
 
-    db_process = Process(target=database_daemon_process, args=(database.database_input_path, with_wipe_input,))
-    db_process.start()
-    logger.info("Database daemon started.")
-    stop_process = input("Press ENTER to stop the database process...")
-    logger.info("Stopping database daemon...")
-    db_process.terminate()
-    db_process.join()
-    logger.info("Database daemon stopped. Nothing will be recorded until restarted!")
+    if not silent:
+        db_process = Process(target=database_daemon_process, args=(database.database_input_path, with_wipe_input,))
+        db_process.start()
+        logger.info("Database daemon started.")
+        stop_process = input("Press ENTER to stop the database process...")
+        logger.info("Stopping database daemon...")
+        db_process.terminate()
+        db_process.join()
+        logger.info("Database daemon stopped. Nothing will be recorded until restarted!")
+    else:
+        try:
+            database_daemon_process(database.database_input_path, with_wipe_input)
+        except FileNotFoundError:
+            logger.error(f"Database input process got FileNotFoundError. ")
 
 
 def main_multieye_kalman():
@@ -259,6 +271,94 @@ def shutdown_rendering():
 def startup_rendering():
     master = CoBeMaster()
     master.startup_rendering_stack()
+
+
+def start_eyeserver_silent():
+    args = argparse.ArgumentParser(description="Starts the pyro5 eye servers on the chosen eyes")
+
+    # adding optional arguments
+    aid = args.add_argument("--eye_id", default=None, help="ID (int) of the eye (nano board) to start eyeserver on as in"
+                                                           "settings.network")
+    args = args.parse_args()
+
+    if args.eye_id is not None:
+        eye_ids = [eye['expected_id'] for eye in network.eyes.values()]
+        eye_id = int(args.eye_id)
+        if eye_id not in eye_ids:
+            raise ValueError(f"Eye ID {eye_id} not found in settings.network")
+        eye_ids = [eye_id]
+    else:
+        eye_ids = [eye['expected_id'] for eye in network.eyes.values()]
+
+    logger.info("Starting eye servers...")
+    if master_settings.master_pass is None:
+        PSWD = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        PSWD = master_settings.master_pass
+
+    eye_ips = [eye['host'] for eye in network.eyes.values() if eye['expected_id'] in eye_ids]
+    config = Config(overrides={'sudo': {'password': PSWD}})
+    eyes = Group(*eye_ips, user=network.nano_username, config=config)
+    logger.info(f"Starting eyeservers on {eye_ips}")
+    # f any eyes fail to startup we will delete them from the list and ask the user if he wants to proceed
+    eyes_to_delete = []
+    for ci, c in enumerate(eyes):
+        c.connect_kwargs.password = PSWD
+
+        # checking for already running eyeserver instances
+        try:
+            start_result = c.run('ps ax  | grep "python3 cobe/vision/eye.py"')
+        except Exception as e:
+            logger.error(f"Error while checking for eyeserver on host {c.host}: {e}\n"
+                         f"This can be caused by the nvidia board not being turned on, not being properly\n"
+                         f"connected to the local network or having a wrong IP in cobe.settings.network.")
+
+            if ci < len(eyes) - 1:
+                proceed = input("Do you want to proceed with the next eye? (y/n): ").lower() == "y"
+            else:
+                proceed = True
+
+            if proceed:
+                eyes_to_delete.append(c)
+                continue
+            else:
+                logger.info("Exiting...")
+                return
+
+        num_found_procs = len(start_result.stdout.split("\n"))
+        PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+        found_eye_servers = num_found_procs > 3
+
+        # asking user if they want to restart the eyeserver if already running
+        if found_eye_servers:
+            logger.info(f"Found {num_found_procs} processes running on host {c.host}.")
+            logger.info(f"Seems like eyeserver is already running with PID {PID}, restarting it!")
+            restart_eyeserver = True
+        else:
+            restart_eyeserver = False
+
+        # restarting eyeserver if requested
+        if restart_eyeserver:
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed eyeserver on host {c.host}, will restart now...")
+        else:
+            logger.info(f"Eyeserver stop/restart was not requested on host {c.host}. Maybe no instance was running"
+                        f"or requested to skip restarting.")
+
+        # starting a new eye server if it was not running or a restart was requested
+        if not found_eye_servers or restart_eyeserver:
+            # starting eyeserver
+            logger.info(f'Starting eyeserver on host {c.host}')
+            c.run(f'cd {network.nano_cobe_installdir} && '
+                  'git pull && '
+                  'ls && '
+                  f'EYE_ID={eye_ids[ci]} dtach -n /tmp/tmpdtach '
+                  f'python3 cobe/vision/eye.py --host={c.host} --port={network.unified_eyeserver_port}',
+                  hide=True,
+                  pty=False)
+            logger.info(f'Started eyeserver on host {c.host}')
+        time.sleep(5)
 
 
 def start_eyeserver(eye_id=None):
@@ -474,18 +574,26 @@ def thymio_autopilot():
 
     db_process = Process(target=database_daemon_process, args=(database.database_input_path, with_wipe_input,
                                                                com_queue, thymio_queue,))
-    db_process.start()
-    logger.info("Database daemon started and passed com and thymio queues.")
 
     thmyio_master = CoBeThymioMaster(target_thymio_name="thymio_0")
-    thmyio_master.thymio_autopilot(thymio_queue, com_queue)
 
-    # filler_proc.terminate()
-    # thymio_proc.terminate()
-    # filler_proc.join()
-    # thymio_proc.join()
+    autopilot_process = Process(target=thmyio_master.thymio_autopilot, args=(thymio_queue, com_queue, False,))
 
+    db_process.start()
+    logger.info("Database daemon started and passed com and thymio queues.")
+    autopilot_process.start()
+    logger.info("Autopilot started.")
+
+    input("Press enter to stop autopilot...")
+
+    logger.info("Stopping autopilot...")
+    autopilot_process.terminate()
+    autopilot_process.join()
     logger.info("Autopilot stopped.")
+
+    logger.info("Stopping thymios")
+    thmyio_master.stop_thymios()
+
     logger.info("Stopping database daemon...")
     db_process.terminate()
     db_process.join()
@@ -614,6 +722,97 @@ def start_thymioserver(th_id=None):
             logger.info("Shutdown complete.")
     else:
         logger.info("No thymio servers started, exiting...")
+
+
+def start_thymioserver_silent(th_id=None):
+    """Starts the pyro thymioserver on the thymios defined by settins.network via fabric"""
+
+    args = argparse.ArgumentParser(description="Starts the pyro5 thymio servers on the chosen thymios")
+
+    # adding optional arguments
+    aid = args.add_argument("--thymio_id", default=None, help="ID (int) of the thymio (rpi board) to start thymioserver on as in"
+                                                           "settings.network.thymios")
+    args = args.parse_args()
+
+    if args.thymio_id is not None:
+        th_ids = [thymio['expected_id'] for thymio in network.thymios.values()]
+        th_id = int(args.thymio_id)
+        if th_id not in th_ids:
+            raise ValueError(f"Thymio ID {th_id} not found in settings.network")
+        th_ids = [th_id]
+    else:
+        th_ids = [th['expected_id'] for th in network.thymios.values()]
+
+    logger.info("Starting thymio servers...")
+
+    if master_settings.master_pass is None:
+        PSWD = getpass("Provide master password:")
+    else:
+        logger.info("Master pass provided via env variable, using it...")
+        PSWD = master_settings.master_pass
+
+    th_ips = [thymio['host'] for thymio in network.thymios.values() if thymio['expected_id'] in th_ids]
+    config = Config(overrides={'sudo': {'password': PSWD}})
+    thymios = Group(*th_ips, user=network.pi_username, config=config)
+    logger.info(f"Starting thymioservers on {th_ips}")
+    # if any thymios fail to startup we will delete them from the list and ask the user if he wants to proceed
+    thymios_to_delete = []
+    for ci, c in enumerate(thymios):
+        c.connect_kwargs.password = PSWD
+
+        # checking for already running thymioserver instances
+        try:
+            start_result = c.run('ps ax  | grep "cobe-thymio-start"')
+        except Exception as e:
+            logger.error(f"Error while checking for thymioserver on host {c.host}: {e}\n"
+                         f"This can be caused by the nvidia board not being turned on, not being properly\n"
+                         f"connected to the local network or having a wrong IP in cobe.settings.network.")
+
+            if ci < len(thymios) - 1:
+                proceed = input("Do you want to proceed with the next thymio? (y/n): ").lower() == "y"
+            else:
+                proceed = True
+
+            if proceed:
+                thymios_to_delete.append(c)
+                continue
+            else:
+                logger.info("Exiting...")
+                return
+
+        num_found_procs = len(start_result.stdout.split("\n"))
+        PID = start_result.stdout.split()[0]  # get PID of first subrocess of python3
+        found_thymio_servers = num_found_procs > 3
+
+        # asking user if they want to restart the thymioserver if already running
+        if found_thymio_servers:
+            logger.info(f"Found {num_found_procs} processes running on host {c.host}.")
+            logger.info(f"Seems like thymioserver is already running with PID {PID}, skipping...")
+            restart_thymioserver = True
+        else:
+            restart_thymioserver = False
+
+        # restarting thymioserver if requested
+        if restart_thymioserver:
+            c.run(f'kill -INT -{int(PID)}')
+            logger.info(f"Killed thymioserver on host {c.host}, will restart now...")
+        else:
+            logger.info(f"thymioserver stop/restart was not requested on host {c.host}. Maybe no instance was running"
+                        f"or requested to skip restarting.")
+
+        # starting a new thymio server if it was not running or a restart was requested
+        if not found_thymio_servers or restart_thymioserver:
+            # starting thymioserver
+            logger.info(f'Starting thymioserver on host {c.host}')
+            c.run(f'cd {network.pi_cobe_installdir} && '
+                  'git pull && '
+                  'ls && '
+                  f'ROBOT_ID={th_ids[ci]} dtach -n /tmp/tmpdtach '
+                  f'pipenv run cobe-thymio-start --host={c.host} --port={network.unified_thymioserver_port}',
+                  hide=True,
+                  pty=False)
+            logger.info(f'Started thymioserver on host {c.host}')
+        time.sleep(5)
 
 
 def calibrate(eye_id=-1, on_screen=False):

@@ -61,6 +61,7 @@ setup(
                             "cobe-vision-calibrate=cobe.app:calibrate",
                             "cbv-stop-eyeserver=cobe.app:start_eyeserver",                                  # VISION-SHORT
                             "cbv-start-eyeserver=cobe.app:start_eyeserver",
+                            "cbv-start-eyeserver-silent=cobe.app:start_eyeserver_silent",
                             "cbv-calibrate=cobe.app:calibrate",
                             "cobe-master-start=cobe.app:main",                                              # MASTER
                             "cobe-master-start-multieye=cobe.app:main_multieye",
@@ -90,9 +91,13 @@ setup(
                             "cobe-thymio-start-thymioserver=cobe.app:start_thymioserver",
                             "cobe-thymio-autopilot=cobe.app:thymio_autopilot",
                             "cbt-start-thymioserver=cobe.app:start_thymioserver",                           # THYMIO-SHORT
+                            "cbt-start-thymioserver-silent=cobe.app:start_thymioserver_silent",
                             "cbt-remote=cobe.app:thymio_remote_control",
                             "cbt-autopilot=cobe.app:thymio_autopilot",
-                            "cbmeta-start=cobe.metaprotocols:single_human"                     # METAPROTOCOLS
+                            "cbmeta-start-1=cobe.metaprotocols:single_human",                               # METAPROTOCOLS
+                            "cbmeta-start-2=cobe.metaprotocols:multi_human",
+                            "cbmeta-start-3=cobe.metaprotocols:thymio_remote",
+                            "cbmeta-start-4=cobe.metaprotocols:thymio_autopilot",
                             ]
     },
     classifiers=[

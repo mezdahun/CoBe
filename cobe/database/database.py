@@ -55,7 +55,7 @@ def check_db_input_folder(dp_input_path, precision=4):
     # read all files in folder with json
     raw_dict = {}
     # getting the filename of the newest json file in the folder
-    newest_file = max([os.path.join(dp_input_path, f) for f in os.listdir(dp_input_path) if f.endswith(".json")],
+    newest_file = max([os.path.join(dp_input_path, f) for f in os.listdir(dp_input_path) if f.endswith(".json") and os.access(os.path.join(dp_input_path, f), os.R_OK) and os.path.isfile(os.path.join(dp_input_path, f))],
                         key=os.path.getctime)
     logger.debug(f"Newest json file in folder is {newest_file}")
 
