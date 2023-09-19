@@ -159,6 +159,14 @@ class CoBeThymioMaster(object):
         logger.info(f"Starting remote control for thymio {target}.")
         thymio = self.thymios[target]["pyro_proxy"]
 
+
+        logger.info("Controls:"
+                    "\n\tW: Move forward, Speed up"
+                    "\n\tS: Move backward, Slow down"
+                    "\n\tA: Turn left"
+                    "\n\tD: Turn right"
+                    "\n\tSpace: Stop"
+                    "\n\tF1: Quit")
         thymio.light_up_led(0, 0, 32)
         while True:
             # The event listener will be running in this block, check if buttons are pressed
@@ -168,32 +176,29 @@ class CoBeThymioMaster(object):
                 if event is None:
                     thymio.pass_time()
                 elif isinstance(event, keyboard.Events.Press):
-                    if event.key == keyboard.Key.esc:
+                    if 'char' in dir(event.key):  # check if char method exists,
+                        if event.key.char == "w":
+                            thymio.speed_up()
+                            logger.info("Forward / Speed up")
+                            thymio.pass_time()
+                        elif event.key.char == "s":
+                            thymio.slow_down()
+                            logger.info("Backward / Slow down")
+                            thymio.pass_time()
+                        elif event.key.char == "a":
+                            thymio.turn_left()
+                            logger.info("Turning left")
+                            continue
+                        elif event.key.char == "d":
+                            thymio.turn_right()
+                            logger.info("Turning right")
+                            continue
+                    elif event.key == keyboard.Key.f1:
                         logger.info("Quitting")
                         thymio.stop()
                         thymio.light_up_led(0, 32, 0)
                         return
                     elif event.key == keyboard.Key.space:
-                        thymio.move_forward()
-                        logger.info("Moving forward")
-                        thymio.pass_time()
-                    elif event.key == keyboard.Key.down:
-                        thymio.slow_down()
-                        logger.info("Slowing down")
-                        thymio.pass_time()
-                    elif event.key == keyboard.Key.up:
-                        thymio.speed_up()
-                        logger.info("Speeding up")
-                        thymio.pass_time()
-                    elif event.key == keyboard.Key.left:
-                        thymio.turn_left()
-                        logger.info("Turning left")
-                        continue
-                    elif event.key == keyboard.Key.right:
-                        thymio.turn_right()
-                        logger.info("Turning right")
-                        continue
-                    elif event.key == keyboard.Key.enter:
                         thymio.stop()
                         logger.info("Stopping")
                         thymio.pass_time()
