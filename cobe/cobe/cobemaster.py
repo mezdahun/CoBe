@@ -1050,6 +1050,14 @@ class CoBeMaster(object):
                                         else:
                                             logger.debug(f"No predator detected on eye {eye_name}")
 
+                                    # filtering unrealistic detections if requested
+                                    if pmodulesettings.with_filtering_unrealistic:
+                                        for position in predator_positions:
+                                            if abs(position[0]) > pmodulesettings.max_abs_coord_detection or \
+                                                    abs(position[1]) > pmodulesettings.max_abs_coord_detection:
+                                                logger.debug(f"Detection @ {position} is unrealistic, removing...")
+                                                predator_positions.remove(position)
+
                                     # generating predator position
                                     if len(predator_positions) > 0:
                                         if kalman_queue is not None:

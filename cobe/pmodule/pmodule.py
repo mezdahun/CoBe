@@ -129,28 +129,13 @@ def generate_pred_json(position_list):
     # generating list of predator dictionaries
     output_list = []
     for id, position in enumerate(position_list):
-        if not ps.with_filtering_unrealistic:
-            output_list.append({
-                "ID": id,
-                "v0": 0,
-                "v1": 0,
-                "x0": position[0],
-                "x1": position[1]
-            })
-        else:
-            # filtering unrealistic positions by checking the x and y coordinates of the detection
-            # if the position is outside of the arena, the predator is not added to the list
-            if abs(position[0]) < ps.max_abs_coord_detection and abs(position[1]) < ps.max_abs_coord_detection:
-                output_list.append({
-                    "ID": id,
-                    "v0": 0,
-                    "v1": 0,
-                    "x0": position[0],
-                    "x1": position[1]
-                })
-            else:
-                logger.debug(f"Detected predator {id} is outside of the still realistic detection area, "
-                             f"not adding to list")
+        output_list.append({
+            "ID": id,
+            "v0": 0,
+            "v1": 0,
+            "x0": position[0],
+            "x1": position[1]
+        })
 
     # todo: check if this was only necessary with more than 1 predators
     # filling list with dummy predators if necessary
