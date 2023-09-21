@@ -103,6 +103,7 @@ def nearest_ind(items, pivot):
     time_diff = np.abs([date - pivot for date in items])
     return time_diff.argmin(0), items[time_diff.argmin(0)]
 
+
 # def kalman_process_OD(od_position_queue, output_queue):
 #     """Main Kalman-filtering process running in separate thread, getting object detection values from the passed queue.
 #     The queue is filled by the object detection process, which is running in a separate thread. The elements pushed to the queue
@@ -213,17 +214,14 @@ def kalman_process_OD(od_position_queue, output_queue):
     implementation according to: https://cocalc.com/share/public_paths/7557a5ac1c870f1ec8f01271959b16b49df9d087/08-Designing-Kalman-Filters.ipynb
     if output_queue is not None, the kalman process will push the predicted positions to the output queue otherwise writen to the pred.json file"""
 
-
     # Parameters
     process_freq = klmp.process_freq  # frequency of process in Hz
     process_noise_var = klmp.process_noise_var  # variance of process noise
     measurement_noise_var = klmp.measurement_noise_var  # variance of measurement noise (in simulation space 20 x 20)
 
-
     dt = 1 / process_freq  # time between process runs
     # initialize Kalman filter
     tracker = KalmanFilter(dim_x=4, dim_z=2)
-
 
     # state variables are [x, vx, y, vy]
     # initialize state transition function
@@ -280,7 +278,8 @@ def kalman_process_OD(od_position_queue, output_queue):
             # update tracker
             # check if we have a ground truth value since last prediction by comparing t_last_predict and t_last_groundtruth
             if (t_last_predict - t_last_groundtruth).total_seconds() >= 0:
-                logger.debug(f"Kalman process: no ground truth value since last prediction, use prediction to further predict")
+                logger.debug(
+                    f"Kalman process: no ground truth value since last prediction, use prediction to further predict")
                 if ts_since_last_predict < klmp.max_timesteps_without_detection:
                     tracker.predict()
                     # logger.debug(f"Tracker update with x: {x}, y: {y}")
@@ -291,7 +290,8 @@ def kalman_process_OD(od_position_queue, output_queue):
                     tracker.P = np.eye(4) * 500.
                 # tracker.update(np.array([x, y]))
             else:
-                logger.debug(f"Kalman process: found ground truth value since last prediction, use ground truth value to further predict")
+                logger.debug(
+                    f"Kalman process: found ground truth value since last prediction, use ground truth value to further predict")
                 # # since there is a delay we predict as many times as we have to given dt and tcap of ground truth values
                 # logger.info(f"tcap: {tcap}, now: {datetime.now()}")
                 # time_diff = (tcap - datetime.now()).total_seconds()
@@ -336,17 +336,14 @@ def kalman_process_OD_multipred(od_position_queue, output_queue):
     implementation according to: https://cocalc.com/share/public_paths/7557a5ac1c870f1ec8f01271959b16b49df9d087/08-Designing-Kalman-Filters.ipynb
     if output_queue is not None, the kalman process will push the predicted positions to the output queue otherwise writen to the pred.json file"""
 
-
     # Parameters
     process_freq = klmp.process_freq  # frequency of process in Hz
     process_noise_var = klmp.process_noise_var  # variance of process noise
     measurement_noise_var = klmp.measurement_noise_var  # variance of measurement noise (in simulation space 20 x 20)
 
-
     dt = 1 / process_freq  # time between process runs
     # initialize Kalman filter
     tracker = KalmanFilter(dim_x=4, dim_z=2)
-
 
     # state variables are [x, vx, y, vy]
     # initialize state transition function
@@ -392,26 +389,26 @@ def kalman_process_OD_multipred(od_position_queue, output_queue):
             while od_position_queue.qsize() > 1:
                 od_position_queue.get_nowait()
             od_element = od_position_queue.get_nowait()
-            # (tcap_str, tpush, pred_positions) = od_element
-            # generate_pred_json(pred_positions)
+
         except Empty:
             od_element = None
 
         # if element is not None, process it
         if od_element is not None:
             (tcap_str, tpush, pred_positions) = od_element
-            t_last_groundtruth = datetime.now()
             logger.info(f"Kalman process: received element from queue: {od_element}")
+
             # for each point we find the closest tracker and update it
             for pred_position in pred_positions:
                 # find closest tracker
-                dists = [np.linalg.norm(np.array([x[0], y[0]]) - np.array([pred_position[0], pred_position[1]])) for x, vx, y, vy in
-                            [tracker.x for tracker in trackers]]
+                dists = [np.linalg.norm(np.array([x[0], y[0]]) - np.array([pred_position[0], pred_position[1]])) for
+                         x, vx, y, vy in
+                         [tracker.x for tracker in trackers]]
                 closest_tracker = np.argmin(dists)
-                logger.info(f"Kalman process: closest tracker: {closest_tracker}")
+                logger.debug(f"Kalman process: closest tracker: {closest_tracker}")
+
                 # update closest tracker
                 trackers[closest_tracker].update(np.array([pred_position[0], pred_position[1]]))
-
 
         if (datetime.now() - t_last_predict).total_seconds() > 1 / process_freq:
             output = []
@@ -422,7 +419,7 @@ def kalman_process_OD_multipred(od_position_queue, output_queue):
                 tracker.predict()
                 (x, vx, y, vy) = tracker.x
                 # check if tracker is still in the simulation space
-                if np.abs(x) > pmodulesettings.max_abs_coord*1.5 or np.abs(y) > pmodulesettings.max_abs_coord*1.5:
+                if np.abs(x) > pmodulesettings.max_abs_coord * 1.5 or np.abs(y) > pmodulesettings.max_abs_coord * 1.5:
                     # wiping tracker
                     tracker.x = np.array([[0, 0, 0, 0]]).T
                     tracker.P = np.eye(4) * 500.
@@ -438,18 +435,13 @@ def kalman_process_OD_multipred(od_position_queue, output_queue):
 
             logger.debug(f"Kalman process: predicted values: x: {x}, y: {y}, vx: {vx}, vy: {vy}")
 
-
             # check if output queue is not None, if so push predicted values to output queue
             if output_queue is not None:
                 logger.debug(f"Kalman process: output queue is not None, push predicted values to output queue")
                 t_put = datetime.now()
                 output_queue.put((t_put, output))
             else:
-                # logger.info([(x, y)])
                 if len(output_json) > 0:
-                    print(f"output_json: {output_json}")
+                    logger.debug(f"output_json: {output_json}")
                     logger.debug(f"Kalman process: output queue is None, write predicted values to json file")
                     generate_pred_json(output_json)
-
-
-

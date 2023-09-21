@@ -26,6 +26,12 @@ docker_startup_timeout = 10
 # Inner coordinate system of the simulation
 max_abs_coord = 20
 
+# If True we filter any unrealistic detection, where the predator coordinate is too far away from the arena
+# This way we can filter detections coming from the far edge of the arena
+with_filtering_unrealistic = False
+# limit to filter unrealistic detections
+max_abs_coord_detection = max_abs_coord * 1.25
+
 # Filename for predator json file
 predator_filename = "out_pred.json"
 

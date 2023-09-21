@@ -137,6 +137,7 @@ def generate_pred_json(position_list):
             "x1": position[1]
         })
 
+    # todo: check if this was only necessary with more than 1 predators
     # filling list with dummy predators if necessary
     while len(output_list) < ps.num_predators:
         if id is None:
