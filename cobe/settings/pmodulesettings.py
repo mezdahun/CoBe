@@ -28,7 +28,7 @@ max_abs_coord = 20
 
 # If True we filter any unrealistic detection, where the predator coordinate is too far away from the arena
 # This way we can filter detections coming from the far edge of the arena
-with_filtering_unrealistic = False
+with_filtering_unrealistic = True
 # limit to filter unrealistic detections
 max_abs_coord_detection = max_abs_coord * 1.25
 
