@@ -1,7 +1,7 @@
 import logging
 
 # Settings affecting logging
-log_level = logging.DEBUG
+log_level = logging.INFO
 log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
