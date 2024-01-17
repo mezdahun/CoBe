@@ -7,7 +7,7 @@ import psutil
 import cobe.settings.rendersettings as rs
 
 from cobe.tools.filetools import is_process_running
-from cobe.settings import logs
+from cobe.settings import logs, abm_simulation
 
 # Setting up file logger
 import logging
@@ -22,24 +22,31 @@ class RenderingStack(object):
         # Label the instance TCP Sender
         # Moving the creation into the send_message() method ensures that it's only created if needed
         self.sender = None
-        self.unity_process = None
+        if not abm_simulation.WITH_ABM:
+            logger.info("Rendering stack using Unity!")
+            self.unity_process = None
+        else:
+            logger.info("Rendering stack using ABM! - NOT IMPLEMENTED YET")
         self.resolume_process = None
     
     def close_apps(self):
         """Closing all apps necessary to use visualization stack, i.e. Resolume and Unity App"""
         # If the process is already stored, just terminate it
         logger.info("Closing rendering apps...")
-        if self.unity_process:
-            self.unity_process.terminate()
-        else:
-            # If the process isn't stored, but is found, terminate that process
-            unity_pid = is_process_running(rs.unity_app_executable_name)
-            if unity_pid:
-                self.unity_process = psutil.Process(unity_pid)
+        if not abm_simulation.WITH_ABM:
+            if self.unity_process:
                 self.unity_process.terminate()
+            else:
+                # If the process isn't stored, but is found, terminate that process
+                unity_pid = is_process_running(rs.unity_app_executable_name)
+                if unity_pid:
+                    self.unity_process = psutil.Process(unity_pid)
+                    self.unity_process.terminate()
 
-        self.unity_process = None
-        logger.info("Closed Unity...")
+            self.unity_process = None
+            logger.info("Closed Unity...")
+        else:
+            logger.info("Closing ABM... NOT IMPLEMENTED YET")
         
         if self.resolume_process:
             self.resolume_process.terminate()
@@ -55,18 +62,21 @@ class RenderingStack(object):
     def open_apps(self):
         """Opens all apps necessary to use visualization stack, i.e. Resolume and Unity App"""
         # if the process isn't stored, see if it's running
-        if not self.unity_process:
-            unity_pid = is_process_running(rs.unity_app_executable_name)
+        if not abm_simulation.WITH_ABM:
+            if not self.unity_process:
+                unity_pid = is_process_running(rs.unity_app_executable_name)
 
-            # if process is already running then store it
-            if unity_pid:
-                logger.info(f"[UNITY] {rs.unity_app_executable_name} already running...")
-                self.unity_process = psutil.Process(unity_pid)
-            else:
-                # otherwise, open it and store that process
-                logger.info(f"Opening [UNITY] {rs.unity_app_executable_name}...")
-                self.unity_process = subprocess.Popen(rs.unity_path)
-                time.sleep(rs.start_up_delay)
+                # if process is already running then store it
+                if unity_pid:
+                    logger.info(f"[UNITY] {rs.unity_app_executable_name} already running...")
+                    self.unity_process = psutil.Process(unity_pid)
+                else:
+                    # otherwise, open it and store that process
+                    logger.info(f"Opening [UNITY] {rs.unity_app_executable_name}...")
+                    self.unity_process = subprocess.Popen(rs.unity_path)
+                    time.sleep(rs.start_up_delay)
+        else:
+            logger.info("Opening [ABM]... NOT IMPLEMENTED YET")
         
         if not self.resolume_process:
             resolume_pid = is_process_running(rs.resolume_app_executable_name)
@@ -136,12 +146,18 @@ class RenderingStack(object):
         Args:
             byte_array: (bytearray): The image to be displayed represented as a byte array
         """
-        logger.info("Displaying image using Unity TCP protocol")
-        converted_string = base64.b64encode(byte_array)
-        self.send_message(converted_string)
-        self.close_sender()
+        if not abm_simulation.WITH_ABM:
+            logger.info("Displaying image using Unity TCP protocol")
+            converted_string = base64.b64encode(byte_array)
+            self.send_message(converted_string)
+            self.close_sender()
+        else:
+            logger.info("Displaying image from python ABM - NOT YET IMPLEMENTED")
 
     def remove_image(self):
-        logger.info("Removing image using Unity TCP protocol")
-        self.send_message("0".encode())
-        self.close_sender()
+        if not abm_simulation.WITH_ABM:
+            logger.info("Removing image using Unity TCP protocol")
+            self.send_message("0".encode())
+            self.close_sender()
+        else:
+            logger.info("Removing image from python ABM - NOT YET IMPLEMENTED")
