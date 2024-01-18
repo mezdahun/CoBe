@@ -4,6 +4,7 @@ import random
 import time
 
 from cobe.cobe.cobemaster import CoBeMaster, CoBeThymioMaster, file_writer_process
+from cobe.cobe.cobemasterabm import CoBeMasterABM
 from cobe.database.database import database_daemon_process
 from fabric import ThreadingGroup as Group, Config
 from getpass import getpass
@@ -64,7 +65,7 @@ def main(eye_id=0):
 
     eye_name = f"eye_{eye_id}"
 
-    master = CoBeMaster(target_eye_name=eye_name)
+    master = CoBeMasterABM(target_eye_name=eye_name)
     master.start(target_eye_name=eye_name)
 
 
