@@ -23,6 +23,7 @@ logger = logs.setup_logger(__name__.split(".")[-1])
 def generate_pred_json_abm(agent_positions, ps=None):
     """Generating agent positions json file compatibe with p34ABM"""
     # generating filename with timestamp
+    filepath = abms.MIDDLEWARE_PATH
     filename = abms.AGENT_LIST_FILENAME
 
     # generating list of predator dictionaries
@@ -38,11 +39,11 @@ def generate_pred_json_abm(agent_positions, ps=None):
             })
 
     # writing to file with json.dump
-    with open(os.path.join(ps.root_folder, filename), 'w') as f:
+    with open(os.path.join(filepath, filename), 'w') as f:
         json.dump(output_list, f)
 
 
-class CobeMasterABM(cobemaster.CobeMaster):
+class CoBeMasterABM(cobemaster.CoBeMaster):
     def __init__(self, *args, **kwargs):
         # The main clss using pygame simulations for cobe will inherit from the original base class so we can use the
         # same calibration methods as before. We override the start method to add further functionality and replace
@@ -166,7 +167,7 @@ class CobeMasterABM(cobemaster.CobeMaster):
                                                                    theoretical_extrap_space_size / aruco.proj_calib_image_height) - centering_const
 
                                             # matching directions in simulation space
-                                            xreal, yreal = yreal, -xreal
+                                            xreal, yreal = yreal, xreal
 
                                             # todo: simplify this by merging the 2 scaling
 
