@@ -215,7 +215,7 @@ def main_multieye():
     # Creating common queue to push detections
     pred_queue = Queue()
     # Creating kalman process to run in different thread
-    kalman_process = Process(target=file_writer_process, args=(pred_queue, ))
+    kalman_process = Process(target=file_writer_process, args=(pred_queue, True, 4,))
 
     # Creating process to run different eyes in different threads
     master = CoBeMaster(pswd=pswd)

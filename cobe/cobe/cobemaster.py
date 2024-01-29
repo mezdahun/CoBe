@@ -239,7 +239,7 @@ class CoBeThymioMaster(object):
         turning_precision_chase = 0.225
 
         turning_precision_centralize = 0.95
-        break_centralize_percent = 0.85
+        break_centralize_percent = 0.785
 
         swarm_center_threshold = 7
         turning_precision_chase_center = 0.16
@@ -247,8 +247,8 @@ class CoBeThymioMaster(object):
 
         prev_thymio_movement_vec = (0, 0)
 
-        max_turning = 0.3
-        max_speed = 275
+        max_turning = 0.29  # for large arena 0.275
+        max_speed = 285  # for large arena 350
 
         t = 0
         center_target = (0, 0)
@@ -334,7 +334,7 @@ class CoBeThymioMaster(object):
             # the center of mass of the fish swarm
             # if thymio_pos[0] > border or thymio_pos[0] < -border or thymio_pos[1] > border or thymio_pos[1] < -border:
             print(f"norm: {np.linalg.norm(np.array(thymio_pos))}")
-            if np.linalg.norm(np.array(thymio_pos)) > border:
+            if np.linalg.norm(np.array(thymio_pos)) > border*0.95:
                 if mode in ["chase", "explore"]:
                     mode = "centralize"
                     logger.info("Centralizing Thymio as it reached border during chase")

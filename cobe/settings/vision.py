@@ -34,5 +34,5 @@ interp_map_res = os.getenv("INTERP_MAP_RES", 500)
 extrap_skirt = 50
 
 ### Inference settings ###
-inf_confidence = 30  # confidence threshold for inference
+inf_confidence = 60  # confidence threshold for inference
 
