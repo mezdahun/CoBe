@@ -1042,7 +1042,10 @@ class CoBeMaster(object):
                                             # matching directions in simulation space
                                             xreal, yreal = yreal, -xreal
 
-                                            # todo: simplify this by merging the 2 scaling commandscobe-pm
+                                            # moving the detected coordinate closer to origin proprtionally to how far it is to origin
+                                            x_eccentricity_percent = xreal / centering_const
+                                            y_eccentricity_percent = yreal / centering_const
+                                            xreal, yreal = xreal - x_eccentricity_percent * 1, yreal - y_eccentricity_percent * 1
 
                                             predator_positions.append([xreal, yreal])
                                             logger.debug(f"Eye {eye_name} detected predator @ ({xreal}, {yreal})")
