@@ -59,10 +59,12 @@ setup(
                             "cobe-vision-start-eyeserver=cobe.app:start_eyeserver",                         # VISION
                             "cobe-vision-stop-eyeserver=cobe.app:stop_eyeserver",
                             "cobe-vision-calibrate=cobe.app:calibrate",
+                            "cobe-vision-start-optitrack-client=cobe.optitrackclient.start_client:start",   # OPTITRACK
                             "cbv-stop-eyeserver=cobe.app:start_eyeserver",                                  # VISION-SHORT
                             "cbv-start-eyeserver=cobe.app:start_eyeserver",
                             "cbv-start-eyeserver-silent=cobe.app:start_eyeserver_silent",
                             "cbv-calibrate=cobe.app:calibrate",
+                            "cbv-start-optitrack-client=cobe.optitrackclient.start_client:start",           # OPTITRACK-SHORT
                             "cobe-master-start=cobe.app:main",                                              # MASTER
                             "cobe-master-start-multieye=cobe.app:main_multieye",
                             "cobe-master-start-multieye-kalman=cobe.app:main_multieye_kalman",

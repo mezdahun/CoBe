@@ -107,7 +107,7 @@ def entry_cleanup_docker_container():
     os.system(f'cmd /c "docker rm {ps.docker_container_name}"')
 
 
-def generate_pred_json(position_list):
+def generate_pred_json(position_list, with_explicit_IDs=False):
     """Generates a .json file containing the predator positions
     to be consumed by the Pmodule
     :param position_list: list of predator positions, e.g. [[x0, y0], [x1, y1], ...]
@@ -125,33 +125,63 @@ def generate_pred_json(position_list):
     # generating filename with timestamp
     filename = ps.predator_filename
 
-    id = None
-    # generating list of predator dictionaries
     output_list = []
-    for id, position in enumerate(position_list):
-        output_list.append({
-            "ID": id,
-            "v0": 0,
-            "v1": 0,
-            "x0": position[0],
-            "x1": position[1]
-        })
 
-    # todo: check if this was only necessary with more than 1 predators
-    # filling list with dummy predators if necessary
-    while len(output_list) < ps.num_predators:
-        if id is None:
-            print("No predators found, filling with dummy predators")
-            print(f"output_list: {output_list}")
-            id = 0
-            position = [0, 0]
-        output_list.append({
-            "ID": id,
-            "v0": 0,
-            "v1": 0,
-            "x0": position[0],
-            "x1": position[1]
-        })
+    if with_explicit_IDs:
+        # expecting ps.num_predators entries in position_list, if we have less we will fill the missing ids with dummy
+        # predators
+        expected_ids = list(range(ps.num_predators))
+        # checking which ids have been passed. if explicitIDs is tru, the list contains triplets of [id, x, y]
+        for ei, entry in enumerate(position_list):
+            id = entry[0] - 1
+            position = entry[1:]
+            output_list.append({
+                "ID": id,
+                "v0": 0,
+                "v1": 0,
+                "x0": position[0],
+                "x1": position[1]
+            })
+            print(expected_ids, id)
+            expected_ids.remove(id)
+
+        # filling list with dummy predators if necessary
+        for id in expected_ids:
+            output_list.append({
+                "ID": id,
+                "v0": 0,
+                "v1": 0,
+                "x0": 0,
+                "x1": 0
+            })
+    else:
+
+        id = None
+        # generating list of predator dictionaries
+        for id, position in enumerate(position_list):
+            output_list.append({
+                "ID": id,
+                "v0": 0,
+                "v1": 0,
+                "x0": position[0],
+                "x1": position[1]
+            })
+
+        # todo: check if this was only necessary with more than 1 predators
+        # filling list with dummy predators if necessary
+        while len(output_list) < ps.num_predators:
+            if id is None:
+                print("No predators found, filling with dummy predators")
+                print(f"output_list: {output_list}")
+                id = 0
+                position = [0, 0]
+            output_list.append({
+                "ID": id,
+                "v0": 0,
+                "v1": 0,
+                "x0": position[0],
+                "x1": position[1]
+            })
 
     # writing to file with json.dump
     with open(os.path.join(ps.root_folder, filename), 'w') as f:

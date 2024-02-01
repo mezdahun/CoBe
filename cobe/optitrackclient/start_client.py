@@ -20,13 +20,16 @@
 
 import sys
 import time
-from NatNetClient import NatNetClient
-import DataDescriptions
-import MoCapData
+from cobe.optitrackclient.NatNetClient import NatNetClient
+import cobe.optitrackclient.DataDescriptions as DataDescriptions
+import cobe.optitrackclient.MoCapData as MoCapData
 
 from cobe.pmodule.pmodule import generate_pred_json
 from cobe.settings.pmodulesettings import max_abs_coord
+import cobe.settings.optitrack as otsettings
 # importing file writing to attach to cobe
+
+rigid_bodies = {}
 
 # This is a callback function that gets connected to the NatNet client
 # and called once per mocap frame.
@@ -46,19 +49,23 @@ def receive_new_frame(data_dict):
 
 # This is a callback function that gets connected to the NatNet client. It is called once per rigid body per frame
 def receive_rigid_body_frame( new_id, position, rotation ):
-    pass
+    global rigid_bodies
     #print( "Received frame for rigid body", new_id )
     # print( "Received frame for rigid body", new_id," ",position," ",rotation )
-    if new_id == 2:
-        x, y = position[0], position[2]
-        # print("x: ", x, "y: ", y)
-        # rescaling to original arena size
-        x_rescale = 3.5
-        y_rescale = 3.5
-        x = - x / x_rescale * max_abs_coord
-        y = y / y_rescale * max_abs_coord
-        # writing to json file
-        generate_pred_json([[x, y]])
+    x, y = position[0], position[2]
+    # print("x: ", x, "y: ", y)
+    # rescaling to original arena size
+    x_rescale = 3.5
+    y_rescale = 3.5
+    x = - x / x_rescale * max_abs_coord
+    y = y / y_rescale * max_abs_coord
+    # update rigid bodies global data
+    rigid_bodies[new_id] = [x, y]
+    # writing to json file
+    # generate list of [id, x, y] from rigid_bodies
+    list_to_write = [[key, value[0], value[1]] for key, value in rigid_bodies.items()]
+    # print(list_to_write)
+    generate_pred_json(list_to_write, with_explicit_IDs=True)
 
 
 def add_lists(totals, totals_tmp):
@@ -166,12 +173,12 @@ def my_parse_args(arg_list, args_dict):
     return args_dict
 
 
-if __name__ == "__main__":
+def start():
 
     optionsDict = {}
-    optionsDict["clientAddress"] = "192.168.0.104"
-    optionsDict["serverAddress"] = "192.168.0.104"
-    optionsDict["use_multicast"] = True
+    optionsDict["clientAddress"] = otsettings.client_address
+    optionsDict["serverAddress"] = otsettings.server_address
+    optionsDict["use_multicast"] = otsettings.use_multicast
 
     # This will create a new NatNet client
     optionsDict = my_parse_args(sys.argv, optionsDict)
@@ -307,3 +314,7 @@ if __name__ == "__main__":
                 print("Error: Command %s not recognized"%c1)
             print("Ready...\n")
     print("exiting")
+
+
+if __name__ == "__main__":
+    start()

@@ -19,8 +19,8 @@ import struct
 from threading import Thread
 import copy
 import time
-import DataDescriptions
-import MoCapData
+import cobe.optitrackclient.DataDescriptions as DataDescriptions
+import cobe.optitrackclient.MoCapData as MoCapData
 
 def trace( *args ):
     # uncomment the one you want to use
@@ -429,7 +429,7 @@ class NatNetClient:
         frame_number = int.from_bytes( data[offset:offset+4], byteorder='little' )
         offset += 4
         trace_mf( "Frame #: %3.1d"% frame_number )
-        frame_prefix_data=MoCapData.FramePrefixData(frame_number)
+        frame_prefix_data= MoCapData.FramePrefixData(frame_number)
         return offset, frame_prefix_data
 
     def __unpack_data_size(self, data, major, minor):
@@ -468,7 +468,7 @@ class NatNetClient:
         return offset, other_marker_data
 
     def __unpack_marker_set_data( self, data, packet_size, major, minor):
-        marker_set_data=MoCapData.MarkerSetData()
+        marker_set_data= MoCapData.MarkerSetData()
         offset = 0
         # Marker set count (4 bytes)
         marker_set_count = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -618,7 +618,7 @@ class NatNetClient:
                     residual = residual * 1000.0
                     trace_mf( "    err  : [%3.2f]"% residual )
 
-                labeled_marker = MoCapData.LabeledMarker(tmp_id,pos,size,param, residual)
+                labeled_marker = MoCapData.LabeledMarker(tmp_id, pos, size, param, residual)
                 labeled_marker_data.add_labeled_marker(labeled_marker)
 
         return offset, labeled_marker_data
@@ -921,7 +921,7 @@ class NatNetClient:
 
     # Unpack a rigid body description packet
     def __unpack_rigid_body_description( self, data, major, minor):
-        rb_desc=DataDescriptions.RigidBodyDescription()
+        rb_desc= DataDescriptions.RigidBodyDescription()
         offset = 0
 
         # Version 2.0 or higher
@@ -979,7 +979,7 @@ class NatNetClient:
                     marker_name = marker_name.decode( 'utf-8' )
                     offset3 += len( marker_name ) + 1
 
-                rb_marker=DataDescriptions.RBMarker(marker_name,active_label,marker_offset)
+                rb_marker= DataDescriptions.RBMarker(marker_name, active_label, marker_offset)
                 rb_desc.add_rb_marker(rb_marker)
                 trace_dd( "\t%3.1d Marker Label: %s Position: [x=%3.2f,y=%3.2f,z=%3.2f] %s" % (marker,active_label,\
                    marker_offset[0], marker_offset[1], marker_offset[2],marker_name ))
@@ -1135,7 +1135,7 @@ class NatNetClient:
             offset+=4
             trace_dd("Channel Data Type : ", channel_data_type)
 
-            device_desc = DataDescriptions.DeviceDescription(new_id,name,serial_number,device_type,channel_data_type)
+            device_desc = DataDescriptions.DeviceDescription(new_id, name, serial_number, device_type, channel_data_type)
 
             # Number of Channels int
             num_channels = int.from_bytes( data[offset:offset+4], byteorder='little' )
@@ -1169,7 +1169,7 @@ class NatNetClient:
         trace_dd( "\tOrientation: [%3.2f, %3.2f, %3.2f, %3.2f]"% (orientation[0], orientation[1], orientation[2], orientation[3] ))
         trace_dd("unpack_camera_description processed %3.1d bytes"% offset)
 
-        camera_desc=DataDescriptions.CameraDescription(name, position, orientation)
+        camera_desc= DataDescriptions.CameraDescription(name, position, orientation)
         return offset, camera_desc
 
 
@@ -1204,7 +1204,7 @@ class NatNetClient:
         trace_dd("unpack_marker_description processed %3.1d bytes"% offset)
 
         # Package for return object
-        marker_desc=DataDescriptions.MarkerDescription(name, marker_id, initialPosition, marker_size, marker_params)
+        marker_desc= DataDescriptions.MarkerDescription(name, marker_id, initialPosition, marker_size, marker_params)
         return offset, marker_desc
 
     def __unpack_asset_rigid_body_data( self, data, major, minor ):
@@ -1237,7 +1237,7 @@ class NatNetClient:
         trace_dd("unpack_marker_description processed %3.1d bytes"% offset)
                 
         # Package for return object
-        rigid_body_data=MoCapData.AssetRigidBodyData(rbID, pos, rot, mean_error, marker_params)
+        rigid_body_data= MoCapData.AssetRigidBodyData(rbID, pos, rot, mean_error, marker_params)
 
         return offset, rigid_body_data
 
@@ -1365,7 +1365,7 @@ class NatNetClient:
         trace_dd("unpack_asset_description processed %3.1d bytes"% offset)
 
         # package for output
-        asset_desc=DataDescriptions.AssetDescription(name, assetType, assetID, rigidbodyArray, markerArray)
+        asset_desc= DataDescriptions.AssetDescription(name, assetType, assetID, rigidbodyArray, markerArray)
         return offset, asset_desc
 
 
