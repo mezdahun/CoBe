@@ -56,6 +56,7 @@ setup(
     },
     entry_points={
         'console_scripts': ["cobe-eye-start=cobe.vision.eye:main",                                          # EYE
+                            "cobe-thymio-start=cobe.thymio.thymio:main",                                    # THYMIO
                             "cobe-vision-start-eyeserver=cobe.app:start_eyeserver",                         # VISION
                             "cobe-vision-stop-eyeserver=cobe.app:stop_eyeserver",
                             "cobe-vision-calibrate=cobe.app:calibrate",
