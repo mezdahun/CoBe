@@ -29,6 +29,7 @@ from pynput import keyboard
 
 from cobe.settings.pmodulesettings import max_abs_coord
 from cobe.settings import network, odmodel, aruco, vision, logs, pmodulesettings, master_settings
+from cobe.settings import optitrack as optitrack_settings
 from cobe.rendering.renderingstack import RenderingStack
 from cobe.pmodule.pmodule import generate_pred_json
 from cobe.tools import cropzoomtool, movement_tools
@@ -38,6 +39,7 @@ import logging
 
 logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
+
 
 def get_latest_element(target_queue, with_print=False):
     """Get latest element from queue without removing it"""
@@ -64,8 +66,6 @@ def filter_detections(detections, det_target="feet"):
     logger.debug("Filtering detections.")
     stick_dets = [det for det in detections if det["class"] == "stick"]
     feet_dets = [det for det in detections if det["class"] == "feet"]
-    trunk_dets = [det for det in detections if det["class"] == "trunk"]
-    head_dets = [det for det in detections if det["class"] == "head"]
     thymio_dets = [det for det in detections if det["class"] == "thymio"]
 
     # If a stick is visible we override any other detections, this is the preferred detection
@@ -90,23 +90,6 @@ def filter_detections(detections, det_target="feet"):
         else:
             # Otherwise we prefer feet detections, but that is impossible in some positions
             detections = []
-        # if len(feet_dets) > 0:
-        #     logger.debug("Using feet detection.")
-        #     detections = feet_dets
-        # elif len(feet_dets) > 0:
-        #     # todo: draw a line from head through trunk and estimate feet position, or alternatively
-        #     #  estimate feet position according to the excentricity of trunk and head detections. I.e. if head detected
-        #     #  in upper part of image, feet are probably in lower part of image according to radial distortion.
-        #     logger.debug("Using feet detection.")
-        #     detections = feet_dets
-        # elif len(trunk_dets) > 0:
-        #     logger.debug("Using trunk detection.")
-        #     detections = trunk_dets
-        # elif len(head_dets) > 0:
-        #     logger.debug("Using head detection.")
-        #     detections = head_dets
-        # else:
-        #     detections = []
 
     if len(detections) > pmodulesettings.num_predators:
         logger.debug(f"More than 1 detection. Detections before sorting: {detections}")
@@ -115,8 +98,10 @@ def filter_detections(detections, det_target="feet"):
     logger.debug(f"Chosen detection after filtering: {detections}")
     return detections
 
+
 class CoBeThymioMaster(object):
     """The main class to control thymio robots via pyro5"""
+
     def __init__(self, pswd=None, target_thymio_name="thymio_0"):
         """Constructor for CoBeMaster"""
         # thymios of the pyro network
@@ -128,23 +113,27 @@ class CoBeThymioMaster(object):
         thymios = {}
         for th_name, th_data in network.thymios.items():
             if self.target_th_name is not None and th_name != self.target_th_name:
-                logger.info(f"Skipping thymio {th_name} during creating CoBeMaster class because it is not the target thymio.")
+                logger.info(
+                    f"Skipping thymio {th_name} during creating CoBeMaster class because it is not the target thymio.")
                 continue
             try:
                 thymios[th_name] = {"pyro_proxy": Proxy(
                     th_data["uri"] + th_data["name"] + "@" + th_data["host"] + ":" + th_data["port"])}
                 thymios[th_name]["th_data"] = th_data
                 # testing created thymio by accessing public Pyro method and comparing outcome with expected ID
-                assert int(thymios[th_name]["pyro_proxy"].return_id()) == int(thymios[th_name]["th_data"]["expected_id"])
+                assert int(thymios[th_name]["pyro_proxy"].return_id()) == int(
+                    thymios[th_name]["th_data"]["expected_id"])
                 logger.debug(f"Eye {th_name} created successfully in CoBeMaster instance.")
             except Exception as e:
                 logger.warning(f"Error creating thymio {th_name}: {e}")
-                logger.warning(f"This can happen because of a wrong URI or the thymio not being on or the thymioserver not "
-                               f"running."
-                               f"Proceeding now without this thymio: {th_name}")
-                logger.warning(f"If this is not intended please debug according to the wiki! All thymios should be turned on,"
-                               f"reachable via ssh (connected to local network) with URIs set in the network settings,"
-                               f"and all has to have a running Pyro5 thymioserver.")
+                logger.warning(
+                    f"This can happen because of a wrong URI or the thymio not being on or the thymioserver not "
+                    f"running."
+                    f"Proceeding now without this thymio: {th_name}")
+                logger.warning(
+                    f"If this is not intended please debug according to the wiki! All thymios should be turned on,"
+                    f"reachable via ssh (connected to local network) with URIs set in the network settings,"
+                    f"and all has to have a running Pyro5 thymioserver.")
                 del thymios[th_name]
         return thymios
 
@@ -158,7 +147,6 @@ class CoBeThymioMaster(object):
 
         logger.info(f"Starting remote control for thymio {target}.")
         thymio = self.thymios[target]["pyro_proxy"]
-
 
         logger.info("Controls:"
                     "\n\tW: Move forward, Speed up"
@@ -215,59 +203,48 @@ class CoBeThymioMaster(object):
 
     def thymio_autopilot(self, thymio_dets_queue, center_of_mass_queue, with_keyboard=True):
         """Controlling a single thymio automatically to chase the fish swarm's center of mass"""
+        # getting target thymio ID to match with predator queue
         if self.target_th_name is None:
             target = "thymio_0"
             logger.info("No target thymio specified, using thymio_0.")
         else:
             target = self.target_th_name
+        target_id = int(float(target.split("_")[-1]))
 
+        # establish proxy connection with target thymio
         logger.info(f"Starting autopilot for thymio {target}.")
         thymio = self.thymios[target]["pyro_proxy"]
 
         #####
         thymio.light_up_led(0, 0, 32)
         prev_thymio_pos = (0, 0)
-        update_thymio_pos_in = np.random.randint(0, 5)
         last_pos_update = 0
         prev_com_pos = (0, 0)
-        border = pmodulesettings.max_abs_coord
-        centralization_border = border * 0.85
-        mode = "chase"  # "chase" or "centralize" or "explore"
-
-        chase_distance = 0.45  # percent of arena
-
-        turning_precision_chase = 0.225
-
-        turning_precision_centralize = 0.95
-        break_centralize_percent = 0.85
-
-        swarm_center_threshold = 7
-        turning_precision_chase_center = 0.16
-
-
         prev_thymio_movement_vec = (0, 0)
-
-        max_turning = 0.3
-        max_speed = 275
-
+        update_thymio_pos_in = np.random.randint(0, 5)
+        mode = "chase"  # "chase" or "centralize" or "explore"
         t = 0
         center_target = (0, 0)
         explore_target = (0, 0)
         num_jitters = 0
-        while True:
-            time.sleep(0.05)
-            # get thymio detections as a list of tuples (x, y)
 
+        # Main loop
+        while True:
+            # update thymio position in given frequency
+            time.sleep(1/update_frequency)
+
+            # get thymio detections as a list of tuples (x, y)
             thymio_detections = get_latest_element(thymio_dets_queue)
             if thymio_detections is None:
-                #time.sleep(0.05)
                 continue
-            print(f"Queue size: {thymio_dets_queue.qsize()}")
-            print(f"Prev thymio pos: {prev_thymio_pos}")
-            print(f"Thymio detections: {thymio_detections}")
-            # while True:
-            # get center of mass of fish swarm
 
+            # Debug prints
+            # print(f"Queue size: {thymio_dets_queue.qsize()}")
+            # print(f"Prev thymio pos: {prev_thymio_pos}")
+            # print(f"Thymio detections: {thymio_detections}")
+            # print(f"Target ID: {target_id}")
+
+            # get center of mass of fish swarm
             com_pos = get_latest_element(center_of_mass_queue)
             if com_pos is None:
                 com_pos = prev_com_pos
@@ -275,25 +252,47 @@ class CoBeThymioMaster(object):
                 print(f"COM: {com_pos}")
                 com_pos = com_pos[0]
 
-            # choosing the closest position to the previous one for tracking purpose
-            if len(thymio_detections) > 0:
-                distances = []
-                for det in thymio_detections:
-                    distances.append(np.linalg.norm(np.array(det) - np.array(prev_thymio_pos)))
+            # choosing the closest position to the previous one for tracking purpose if no ID is passed
+            if not optitrack_settings.use_optitrack_client:
+                if len(thymio_detections) > 0:
+                    distances = []
+                    for det in thymio_detections:
+                        di, dpx, dpy = det
+                        distances.append(np.linalg.norm(np.array([dpx, dpy]) - np.array(prev_thymio_pos)))
 
-                print(f"Distances: {distances}")
-                # refusing to proceed if the closest detection is too far away
-                closest_det = thymio_detections[np.argmin(distances)]
-                print(f"Closest det: {closest_det}")
+                    print(f"Distances: {distances}")
+                    # refusing to proceed if the closest detection is too far away
+                    closest_det = thymio_detections[np.argmin(distances)]
+                    print(f"Closest det: {closest_det}")
 
-            elif len(thymio_detections) == 0:
-                print("No detections")
-                time.sleep(0.05)
-                continue
+                elif len(thymio_detections) == 0:
+                    print("No detections")
+                    time.sleep(0.05)
+                    continue
+                else:
+                    closest_det = thymio_detections[0]
+                thymio_pos = [closest_det[1], closest_det[2]]
+                other_thymios = None  # multiagent mode only implemented with optitrack
+                interthymio_distances = None
+
             else:
-                closest_det = thymio_detections[0]
+                # we assume that the list that passed includes robot ids as (id, x, y) for each element
+                print(f"Thymio detections: {thymio_detections}")
+                other_thymios = []
+                for det in thymio_detections:
+                    if det[0] == target_id:
+                        thymio_pos = [det[1], det[2]]
+                        print(f"Thymio pos: {thymio_pos} because of ID {target_id}")
+                    else:
+                        other_thymios.append([det[1], det[2]])
 
-            thymio_pos = closest_det
+                # calculate the distance to other thymios
+                if other_thymios is not None:
+                    interthymio_distances = []
+                    for other_thymio in other_thymios:
+                        distance_to_other_thymio = np.linalg.norm(np.array(thymio_pos) - np.array(other_thymio))
+                        print(f"Distance to other thymio: {distance_to_other_thymio}")
+                        interthymio_distances.append(distance_to_other_thymio)
 
             # check distance to center of mass
             distance_to_com = np.linalg.norm(np.array(thymio_pos) - np.array(com_pos))
@@ -306,24 +305,30 @@ class CoBeThymioMaster(object):
                     mode = "chase"
                     logger.info("Chasing fish")
                     thymio.light_up_led(0, 0, 32)
+
                 elif mode == "centralize":
                     # if the thymio is not close to the border anymore, it will start chasing the fish
-                    if np.linalg.norm(np.array(thymio_pos)) < border*break_centralize_percent:
+                    if np.linalg.norm(np.array(thymio_pos)) < border * break_centralize_percent:
                         mode = "chase"
                         logger.info("Chasing fish")
                         thymio.light_up_led(0, 0, 32)
+
                 elif mode == "chase":
+                    # making thymios less agile close to center of mass
                     if distance_to_com < swarm_center_threshold:
                         turning_precision = turning_precision_chase_center
 
             else:
+                # thymios can't see fish as they are far
                 if mode == "chase":
-                    # otherwise it explores the arena
+                    # explores the arena
                     mode = "explore"
                     logger.info("Exploring arena")
                     thymio.light_up_led(32, 0, 32)
+                    # define random target point to explore in the arena
                     explore_target = (np.random.uniform(-border, border), np.random.uniform(-border, border))
                     logger.info(f"Selecting random target point: {com_pos}")
+
                 elif mode == "explore":
                     if np.linalg.norm(np.array(thymio_pos) - np.array(com_pos)) < 0.1 * pmodulesettings.max_abs_coord:
                         # if the thymio is close enough to the target point, it will select another one
@@ -333,8 +338,8 @@ class CoBeThymioMaster(object):
             # If the thymio is currently at the border, it will aim back towards the center of the arena instead of
             # the center of mass of the fish swarm
             # if thymio_pos[0] > border or thymio_pos[0] < -border or thymio_pos[1] > border or thymio_pos[1] < -border:
-            print(f"norm: {np.linalg.norm(np.array(thymio_pos))}")
-            if np.linalg.norm(np.array(thymio_pos)) > border:
+            # print(f"norm: {np.linalg.norm(np.array(thymio_pos))}")
+            if np.linalg.norm(np.array(thymio_pos)) > centralization_border:
                 if mode in ["chase", "explore"]:
                     mode = "centralize"
                     logger.info("Centralizing Thymio as it reached border during chase")
@@ -353,6 +358,7 @@ class CoBeThymioMaster(object):
                             center_target = (border * 0.5, border * 0.5)
                     # center_target = (np.random.choice([-1, 1]) * border * 0.5, np.random.choice([-1, 1]) * border * 0.5)
                     logger.info(f"Selecting random target point: {center_target}")
+
             # check if the thymio is in the 10% radius range of center of the arena to start exploring / chasing the fish again
             elif np.linalg.norm(np.array(thymio_pos) - np.array(center_target)) < pmodulesettings.max_abs_coord * 0.1:
                 if mode == "centralize":
@@ -369,18 +375,44 @@ class CoBeThymioMaster(object):
             elif mode == "explore":
                 com_pos = explore_target
                 turning_precision = turning_precision_chase
+            if interthymio_distances is not None:
+                #print(f"Interthymio distances: {interthymio_distances}")
+                if np.min(interthymio_distances) < avoidance_radius:
+                    # check which element is the closest
+                    closest_thymio = other_thymios[np.argmin(interthymio_distances)]
+                    # logger.info(f"Closest Thymio: {closest_thymio}")
+                    thymio_vec = np.array(closest_thymio) - np.array(thymio_pos)
+                    # logger.info(f"Thymio vector: {thymio_vec}")
+                    com_pos = np.array(thymio_pos) - thymio_vec
+                    # logger.info(f"New com_pos: {com_pos}")
 
+                    # defining a new target position that guides the agent away from the closest thymio
+                    com_pos = [np.sign(com_pos[0]) * np.minimum(np.abs(com_pos[0]), border),
+                               np.sign(com_pos[1]) * np.minimum(np.abs(com_pos[1]), border)]
+                    turning_precision = turning_precision_centralize
+
+                    # change color only if not already red
+                    if mode != "avoid":
+                        mode = "avoid"
+                        thymio.light_up_led(32, 0, 0)
+                        logger.info("Thymio is too close to another Thymio, AVOIDANCE!")
+
+                else:
+                    # turning back to exploration mode
+                    if mode == "avoid":
+                        mode = "explore"
+                        thymio.light_up_led(32, 0, 32)
+                        logger.info("Thymio is not too close to another Thymio anymore, back to EXPLORATION!")
 
             # calculate angle of movement for thymio according to previous and current position
             thymio_movement_vec = np.array(thymio_pos) - np.array(prev_thymio_pos)
 
-            # calculate angle between thymio previous position and center of mass
+            # calculate angle between thymio previous position and target point
             com_dir_vec = np.array(com_pos) - np.array(prev_thymio_pos)
 
             # calculate closed angle
             try:
                 closed_angle = movement_tools.angle_between(thymio_movement_vec, com_dir_vec)
-                print(closed_angle)
 
                 if np.isnan(closed_angle):
                     closed_angle = 0
@@ -389,12 +421,9 @@ class CoBeThymioMaster(object):
                 time.sleep(0.05)
                 continue
 
-            speed = max_speed
-            print(f"closed angle before: {closed_angle}")
             # match direction standard
             closed_angle = -closed_angle
 
-            print(f"update thymio prev position: {thymio_pos}")
             # check if the position is coming from a jitter
             if t > 1:
                 # check if the direction of movement has opposite signs
@@ -407,23 +436,23 @@ class CoBeThymioMaster(object):
                 #     num_jitters += 1
                 #     print(f"num jitters: {num_jitters}")
                 # else:
-                logger.info(f"Did not detect jitter with angle {movement_tools.angle_between(prev_thymio_movement_vec, thymio_movement_vec)}")
-                if np.abs(t-last_pos_update) >= update_thymio_pos_in:
-                    logger.info("Updating Thymio position")
+                #     logger.info(
+                #         f"Did not detect jitter with angle {movement_tools.angle_between(prev_thymio_movement_vec, thymio_movement_vec)}")
+                if np.abs(t - last_pos_update) >= update_thymio_pos_in:
+                    # logger.info("Updating Thymio position")
                     prev_thymio_pos = thymio_pos
                     last_pos_update = t
                     update_thymio_pos_in = 1
                 prev_thymio_movement_vec = thymio_movement_vec
 
-
             if mode in ["chase", "explore"]:
                 final_turning = np.sign(closed_angle) * min(max_turning, abs(closed_angle * turning_precision))
-                thymio.move_with_speed_and_angle(speed, float(final_turning))
+                thymio.move_with_speed_and_angle(max_speed, float(final_turning))
             else:
                 final_turning = np.sign(closed_angle) * min(1, abs(closed_angle))
-                thymio.move_with_speed_and_angle(speed, float(final_turning))
+                thymio.move_with_speed_and_angle(max_speed, float(final_turning))
 
-            logger.info(f"moving with speed {speed} and angle {closed_angle}->{final_turning}")
+            logger.info(f"moving with speed {max_speed} and angle {closed_angle}->{final_turning}")
 
             prev_com_pos = com_pos
 
@@ -443,8 +472,10 @@ class CoBeThymioMaster(object):
 
             t += 1
 
+
 class CoBeMaster(object):
     """The main class of the CoBe project, organizing action flow between detection, processing and projection"""
+
     def __init__(self, pswd=None, target_eye_name=None):
         """Constructor for CoBeMaster"""
         # eyes of the network
@@ -508,9 +539,10 @@ class CoBeMaster(object):
                 logger.warning(f"This can happen because of a wrong URI or the eye not being on or the eyeserver not "
                                f"running."
                                f"Proceeding now without this eye: {eye_name}")
-                logger.warning(f"If this is not intended please debug according to the wiki! All eyes should be turned on,"
-                               f"reachable via ssh (connected to local network) with URIs set in the network settings,"
-                               f"and all has to have a running Pyro5 eyeserver.")
+                logger.warning(
+                    f"If this is not intended please debug according to the wiki! All eyes should be turned on,"
+                    f"reachable via ssh (connected to local network) with URIs set in the network settings,"
+                    f"and all has to have a running Pyro5 eyeserver.")
                 del eyes[eye_name]
         return eyes
 
@@ -543,7 +575,8 @@ class CoBeMaster(object):
                                                    inf_server_url=odmodel.inf_server_url,
                                                    version=odmodel.version)
 
-    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True, eye_id=-1):
+    def calculate_calibration_maps(self, with_visualization=False, interactive=False, detach=False, with_save=True,
+                                   eye_id=-1):
         """Calculates the calibration maps for each eye and stores them in the eye dict
         :param with_visualization: if True, the calibration maps are visualized
         :param interactive: if True, the calibration maps are regenerated until the user agrees with quality
@@ -558,7 +591,6 @@ class CoBeMaster(object):
 
         logger.info(f"Eyes with ID {eyes_to_calib} will be calibrated.")
         retry = {eye_name: True for eye_name in self.eyes.keys()}
-
 
         for eye_name, eye_dict in self.eyes.items():
             eye_i = int(eye_name.split('_')[-1])
@@ -589,7 +621,8 @@ class CoBeMaster(object):
 
                         # calculate the calibration maps for each eye and store them in the eye dict
                         logger.debug("Calculating calibration maps...")
-                        self.calibrator.interpolate_xy_maps(eyes_in_calib, with_visualization=with_visualization, detach=detach)
+                        self.calibrator.interpolate_xy_maps(eyes_in_calib, with_visualization=with_visualization,
+                                                            detach=detach)
 
                         if interactive:
                             retry_input = input("Press r to retry calibration, or enter to continue...")
@@ -813,7 +846,8 @@ class CoBeMaster(object):
                             sufficient
         :param detach: if True, the calibration process will be detached from the main process"""
         logger.debug("Starting calibration...")
-        self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach, eye_id=eye_id)
+        self.calculate_calibration_maps(with_visualization=with_visualization, interactive=interactive, detach=detach,
+                                        eye_id=eye_id)
         sleep(2)
 
     def start_test_stream(self, t=300):
@@ -908,7 +942,8 @@ class CoBeMaster(object):
                                 switch_time = datetime.now()
         logger.info("Finished collecting images. Bye Bye!")
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None, no_calib=False, det_target="stick"):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None,
+              no_calib=False, det_target="stick"):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
@@ -932,7 +967,8 @@ class CoBeMaster(object):
 
         if not no_calib:
             logger.info("Calibrating eyes...")
-            self.calibrate(with_visualization=True, interactive=True, detach=True, eye_id=int(target_eye_name.split("_")[-1]))
+            self.calibrate(with_visualization=True, interactive=True, detach=True,
+                           eye_id=int(target_eye_name.split("_")[-1]))
         else:
             eye_name = target_eye_name
             eye_dict = self.eyes[eye_name]
@@ -994,7 +1030,8 @@ class CoBeMaster(object):
                                     # generating predator positions to be sent to the simulation
                                     predator_positions = []
                                     for detection in detections:
-                                        logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
+                                        logger.debug(
+                                            f"Frame in processing was requested at {detection.get('request_ts')}")
                                         xcam, ycam = detection["x"], detection["y"]
 
                                         # scaling up the coordinates to the original calibration image size
@@ -1030,9 +1067,11 @@ class CoBeMaster(object):
 
                                             # scaling down the coordinates from the original calibration image size to the
                                             # simulation space
-                                            extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
+                                            extrapolation_percentage = (
+                                                                               vision.interp_map_res + 2 * vision.extrap_skirt) / \
                                                                        vision.interp_map_res
-                                            theoretical_extrap_space_size = (2 * max_abs_coord) * extrapolation_percentage
+                                            theoretical_extrap_space_size = (
+                                                                                    2 * max_abs_coord) * extrapolation_percentage
                                             centering_const = theoretical_extrap_space_size / 2
                                             xreal, yreal = xreal * (
                                                     theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
@@ -1072,13 +1111,14 @@ class CoBeMaster(object):
                                     if frid % log_every_n_frame == 0 and frid != 0:
                                         avg_inf_time = sum_inf_time / log_every_n_frame
                                         logger.info(
-                                            f"Health - {eye_name} - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                            f"Health - {eye_name} - Average FR in last {log_every_n_frame} frames: {1 / avg_inf_time}")
                                         sum_inf_time = 0
                                     else:
                                         sum_inf_time += (end_time - start_time).total_seconds()
 
                                 else:
-                                    raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
+                                    raise Exception(
+                                        f"No remapping available for eye {eye_name}. Please calibrate first!")
 
                                 if not no_calib:
                                     with keyboard.Events() as events:
@@ -1100,7 +1140,8 @@ class CoBeMaster(object):
                                 # time.sleep(5)
 
                             except Exception as e:
-                                if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
+                                if str(e).find(
+                                        "Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                     logger.warning(
                                         "Connection error: Inference server is probably not yet started properly. "
                                         "retrying in 3"
@@ -1511,7 +1552,8 @@ def file_writer_process(input_queue, with_averaging=False, averaging_window=2):
                     for memory in pred_memory:
                         if len(memory) == 0:
                             continue
-                        closest_detection = np.argmin(np.array([np.linalg.norm(np.array(m) - np.array(pred_position)) for m in memory]))
+                        closest_detection = np.argmin(
+                            np.array([np.linalg.norm(np.array(m) - np.array(pred_position)) for m in memory]))
                         # if the closest detection is too far away we simply don't take it in the average
                         if np.linalg.norm(np.array(memory[closest_detection]) - np.array(pred_position)) > 1:
                             continue
