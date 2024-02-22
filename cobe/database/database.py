@@ -137,11 +137,10 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
 
     wrote_datapoints = 0
     time_last_health = datetime.now()
-    time_last_autopilot = datetime.now()
     time_last_db_push = datetime.now()
     health_freq = database.health_freq
-    autopilot_freq = database.autopilot_freq
     db_push_freq = database.db_push_freq
+
     t = 0
     while True:
         # check if new files are in the database input folder
@@ -162,25 +161,39 @@ def database_daemon_process(db_input_folder, with_wiping_input_folder=False, COM
                 if (timestamp - time_last_db_push).seconds >= db_push_freq:
                     db.insert(p, compact_key_prefixes=True)
 
+                # writing only every 2nd time step to the queue
                 if t % 2 == 0:
+                    # sending center of mass
                     if COM_queue is not None:
-                        COM_queue.put(com)
+                        # check if only one or multiple queues are given if multiple push to all
+                        if isinstance(COM_queue, list):
+                            for q in COM_queue:
+                                q.put(com)
+                        else:
+                            COM_queue.put(com)
+
+                    # sending predators
                     if predator_queue is not None:
                         num_predators = pmodulesettings.num_predators
                         predators = []
                         for pi in range(num_predators):
-                            predators.append([fields[f"prx{pi}"], fields[f"pry{pi}"]])
-                        predator_queue.put(predators)
-                # time_last_autopilot = datetime.now()
+                            predators.append([pi, fields.get(f"prx{pi}", 0), fields.get(f"pry{pi}", 0)])
+                        if isinstance(predator_queue, list):
+                            for q in predator_queue:
+                                q.put(predators)
+                        else:
+                            predator_queue.put(predators)
 
             logger.debug(f"Raw dictionary written into database {run_id}")
             wrote_datapoints += len(raw_dict)
 
+        # health check
         if (datetime.now() - time_last_health).seconds >= health_freq:
             logger.info(f"Health: Wrote {wrote_datapoints} datapoints in {run_id} in the last {health_freq} seconds")
             wrote_datapoints = 0
             time_last_health = datetime.now()
 
+        # check if database is larger than 1GB and create new shard
         if os.path.getsize(db_path) / 1000000000 >= 1:
             logger.warning(f"Database {run_id} is larger than 1GB, creating new database...")
             shard_id += 1
