@@ -215,7 +215,25 @@ class CoBeThymioMaster(object):
         logger.info(f"Starting autopilot for thymio {target}.")
         thymio = self.thymios[target]["pyro_proxy"]
 
-        #####
+        # Arena and Movement parameters
+        border = pmodulesettings.max_abs_coord  # arena borders
+        centralization_border = border * 0.85  # border after which thymio switches to centralization movement to avoid escape
+        break_centralize_percent = 0.85  # percent of arena to break centralization behavior
+        turning_precision_centralize = 0.95  # turning precision for centralizing
+
+        chase_distance = 0.45  # distance from which agents perceive fish (percent of arena)
+        turning_precision_chase = 0.225  # turning precision for chasing
+
+        swarm_center_threshold = 7  # threshold for swarm center distance to change behavior
+        turning_precision_chase_center = 0.16  # turning precision for chasing when closer to COM than swarm_center_threshold
+
+        avoidance_radius = 5  # radius of avoidance circle in which agents turn away from the closest other agent
+
+        max_turning = 0.35  # maximum turning rate
+        max_speed = 350  # maximum absolute speed
+        update_frequency = 30  # frequency of updating thymio position (Hz)
+
+        # Initializing Thymio
         thymio.light_up_led(0, 0, 32)
         prev_thymio_pos = (0, 0)
         last_pos_update = 0
@@ -523,7 +541,8 @@ class CoBeMaster(object):
         eyes = {}
         for eye_name, eye_data in network.eyes.items():
             if self.target_eye_name is not None and eye_name != self.target_eye_name:
-                logger.info(f"Skipping eye {eye_name} during creating CoBeMaster class because it is not the target eye.")
+                logger.info(
+                    f"Skipping eye {eye_name} during creating CoBeMaster class because it is not the target eye.")
                 continue
             try:
                 eyes[eye_name] = {"pyro_proxy": Proxy(
