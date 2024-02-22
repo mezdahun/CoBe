@@ -1,9 +1,11 @@
 import json
 import os
+import shutil
 
 import numpy as np
 from matplotlib import pyplot as plt
 from time import sleep
+import time
 from pynput import keyboard
 
 from cobe.cobe import cobemaster
@@ -20,7 +22,7 @@ logging.basicConfig(level=logs.log_level, format=logs.log_format)
 logger = logs.setup_logger(__name__.split(".")[-1])
 
 
-def generate_pred_json_abm(agent_positions, ps=None):
+def generate_pred_json_abm(agent_positions, with_explicit_ids=False):
     """Generating agent positions json file compatibe with p34ABM"""
     # generating filename with timestamp
     filepath = abms.MIDDLEWARE_PATH
@@ -28,19 +30,50 @@ def generate_pred_json_abm(agent_positions, ps=None):
 
     # generating list of predator dictionaries
     output_list = []
-    for id, position in enumerate(agent_positions):
-        if id < abms.MAX_NUM_AGENTS:
-            output_list.append({
-                "ID": id,
-                "x0": position[0],
-                "x1": position[1],
-                "TYPE": "agent",
-                "MODE": "explore"
-            })
+    if not with_explicit_ids:
+        for id, position in enumerate(agent_positions):
+            if id < abms.MAX_NUM_AGENTS:
+                output_list.append({
+                    "ID": id,
+                    "x0": position[0],
+                    "x1": position[1],
+                    "TYPE": "agent",
+                    "MODE": "explore"
+                })
+    else:
+        for triplet in agent_positions:
+            id, x, y = triplet
+            if id < abms.MAX_NUM_AGENTS:
+                output_list.append({
+                    "ID": id,
+                    "x0": int(x),
+                    "x1": int(y),
+                    "TYPE": "agent",
+                    "MODE": "explore"
+                })
 
     # writing to file with json.dump
-    with open(os.path.join(filepath, filename), 'w') as f:
-        json.dump(output_list, f)
+    safe_atomic_json_write(output_list, os.path.join(filepath, filename))
+
+
+def atomic_json_write(data, filename='agent_list.json'):
+    temp_filename = filename + '.tmp'
+    with open(temp_filename, 'w') as temp_file:
+        json.dump(data, temp_file)
+    shutil.move(temp_filename, filename)
+
+
+def safe_atomic_json_write(data, filename='agent_list.json', retries=5, delay=0.01):
+    for attempt in range(retries):
+        try:
+            atomic_json_write(data, filename)
+            break  # Successfully written, exit the loop
+        except Exception as e:
+            if attempt < retries - 1:
+                logger.warning(f"Failed to write to {filename} (attempt {attempt + 1}/{retries}): {e}")
+                time.sleep(delay)  # Wait a bit before retrying
+            else:
+                raise  # Re-raise the exception if all retries fail
 
 
 class CoBeMasterABM(cobemaster.CoBeMaster):
@@ -73,7 +106,8 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
         xs = np.arange(0, vision.display_width, 50)
         ys = np.arange(0, vision.display_height, 50)
 
-    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None, no_calib=False, det_target="stick"):
+    def start(self, show_simulation_space=False, target_eye_name="eye_0", t_max=10000, kalman_queue=None,
+              no_calib=False, det_target="stick"):
         """Starts the main action loop of the CoBe project
         :param show_simulation_space: if True, the remapping to simulation space will be visualized as
                                         matplotlib plot
@@ -99,7 +133,8 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
 
         if not no_calib:
             logger.info("Calibrating eyes...")
-            self.calibrate(with_visualization=True, interactive=True, detach=True, eye_id=int(target_eye_name.split("_")[-1]))
+            self.calibrate(with_visualization=True, interactive=True, detach=True,
+                           eye_id=int(target_eye_name.split("_")[-1]))
         else:
             eye_name = target_eye_name
             eye_dict = self.eyes[eye_name]
@@ -143,7 +178,8 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
                                     # generating agent positions to be sent to the simulation
                                     agent_positions = []
                                     for detection in detections:
-                                        logger.debug(f"Frame in processing was requested at {detection.get('request_ts')}")
+                                        logger.debug(
+                                            f"Frame in processing was requested at {detection.get('request_ts')}")
                                         xcam, ycam = detection["x"], detection["y"]
 
                                         # scaling up the coordinates to the original calibration image size
@@ -157,9 +193,11 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
                                             # todo: reqwrite this to scale into the pygame arena size
                                             # scaling down the coordinates from the original calibration image size to the
                                             # simulation space
-                                            extrapolation_percentage = (vision.interp_map_res + 2 * vision.extrap_skirt) / \
+                                            extrapolation_percentage = (
+                                                                                   vision.interp_map_res + 2 * vision.extrap_skirt) / \
                                                                        vision.interp_map_res
-                                            theoretical_extrap_space_size = (2 * abms.max_abs_coord) * extrapolation_percentage
+                                            theoretical_extrap_space_size = (
+                                                                                        2 * abms.max_abs_coord) * extrapolation_percentage
                                             centering_const = theoretical_extrap_space_size / 2
                                             xreal, yreal = xreal * (
                                                     theoretical_extrap_space_size / aruco.proj_calib_image_width) - centering_const, \
@@ -200,13 +238,14 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
                                     if frid % log_every_n_frame == 0 and frid != 0:
                                         avg_inf_time = sum_inf_time / log_every_n_frame
                                         logger.info(
-                                            f"Health - {eye_name} - Average FR in last {log_every_n_frame} frames: {1  / avg_inf_time}")
+                                            f"Health - {eye_name} - Average FR in last {log_every_n_frame} frames: {1 / avg_inf_time}")
                                         sum_inf_time = 0
                                     else:
                                         sum_inf_time += (end_time - start_time).total_seconds()
 
                                 else:
-                                    raise Exception(f"No remapping available for eye {eye_name}. Please calibrate first!")
+                                    raise Exception(
+                                        f"No remapping available for eye {eye_name}. Please calibrate first!")
 
                                 if not no_calib:
                                     with keyboard.Events() as events:
@@ -228,7 +267,8 @@ class CoBeMasterABM(cobemaster.CoBeMaster):
                                 # time.sleep(5)
 
                             except Exception as e:
-                                if str(e).find("Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
+                                if str(e).find(
+                                        "Original exception: <class 'requests.exceptions.ConnectionError'>") > -1:
                                     logger.warning(
                                         "Connection error: Inference server is probably not yet started properly. "
                                         "retrying in 3"
