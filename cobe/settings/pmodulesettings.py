@@ -34,6 +34,7 @@ max_abs_coord_detection = max_abs_coord * 1.25
 
 # Filename for predator json file
 predator_filename = "out_pred.json"
+predator_target_folder = root_folder
 
 ## P-module algorithm parameters
 # -d Simulation step size
@@ -56,7 +57,7 @@ predator_filename = "out_pred.json"
 # default values
 sim_dt = 0.02
 batch_size = int(os.environ.get("PM_BATCH_SIZE", 8))           # thymios 1, stick - 6-8
-center_pull_radius = float(os.environ.get("PM_CENTER_PULL_RADIUS", 20))  # thymios 17, stick - 20
+center_pull_radius = float(os.environ.get("PM_CENTER_PULL_RADIUS", 17))  # thymios 17, stick - 20
 num_prey = 50  #100
 repulsion_range = 1
 repulsion_steepness = -4
@@ -68,6 +69,6 @@ flee_angle = 0.523599
 flee_steepness = 1
 flee_range = 10
 noise_strength = 0.2
-num_predators = int(os.environ.get("PM_NUM_PREDATORS", 1))        # single stick-1, multiplayer-2
+num_predators = int(os.environ.get("PM_NUM_PREDATORS", 2))        # single stick-1, multiplayer-2
 
 

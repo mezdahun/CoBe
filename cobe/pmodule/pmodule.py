@@ -1,11 +1,15 @@
-import json
-import os
 import subprocess
 import logging
+import os
+import shutil
+import json
+
+import numpy as np
 
 import cobe.settings.pmodulesettings as ps
 
 from time import sleep
+import time
 from cobe.tools.filetools import is_process_running, clear_directory
 from cobe.settings import logs
 
@@ -107,7 +111,7 @@ def entry_cleanup_docker_container():
     os.system(f'cmd /c "docker rm {ps.docker_container_name}"')
 
 
-def generate_pred_json(position_list, with_explicit_IDs=False):
+def generate_pred_json(position_list, with_explicit_ids=False):
     """Generates a .json file containing the predator positions
     to be consumed by the Pmodule
     :param position_list: list of predator positions, e.g. [[x0, y0], [x1, y1], ...]
@@ -123,11 +127,10 @@ def generate_pred_json(position_list, with_explicit_IDs=False):
     ]
     """
     # generating filename with timestamp
-    filename = ps.predator_filename
-
+    filename = os.path.join(ps.predator_target_folder, ps.predator_filename)
     output_list = []
 
-    if with_explicit_IDs:
+    if with_explicit_ids:
         # expecting ps.num_predators entries in position_list, if we have less we will fill the missing ids with dummy
         # predators
         expected_ids = list(range(ps.num_predators))
@@ -142,7 +145,6 @@ def generate_pred_json(position_list, with_explicit_IDs=False):
                 "x0": position[0],
                 "x1": position[1]
             })
-            print(expected_ids, id)
             expected_ids.remove(id)
 
         # filling list with dummy predators if necessary
@@ -154,8 +156,9 @@ def generate_pred_json(position_list, with_explicit_IDs=False):
                 "x0": 0,
                 "x1": 0
             })
-    else:
 
+    # no explicit ids were passed, we have to modify the IDs
+    else:
         id = None
         # generating list of predator dictionaries
         for id, position in enumerate(position_list):
@@ -167,7 +170,6 @@ def generate_pred_json(position_list, with_explicit_IDs=False):
                 "x1": position[1]
             })
 
-        # todo: check if this was only necessary with more than 1 predators
         # filling list with dummy predators if necessary
         while len(output_list) < ps.num_predators:
             if id is None:
@@ -183,6 +185,24 @@ def generate_pred_json(position_list, with_explicit_IDs=False):
                 "x1": position[1]
             })
 
-    # writing to file with json.dump
-    with open(os.path.join(ps.root_folder, filename), 'w') as f:
-        json.dump(output_list, f)
+    safe_atomic_json_write(output_list, filename)
+
+
+def atomic_json_write(data, filename='out_pred.json'):
+    temp_filename = 'temp.tmp'
+    with open(temp_filename, 'w') as temp_file:
+        json.dump(data, temp_file)
+    shutil.move(temp_filename, filename)
+
+
+def safe_atomic_json_write(data, filename='out_pred.json', retries=5, delay=0.01):
+    for attempt in range(retries):
+        try:
+            atomic_json_write(data, filename)
+            break  # Successfully written, exit the loop
+        except Exception as e:
+            if attempt < retries - 1:
+                logger.warning(f"Failed to write to {filename} (attempt {attempt + 1}/{retries}): {e}")
+                time.sleep(delay)  # Wait a bit before retrying
+            else:
+                raise  # Re-raise the exception if all retries fail
