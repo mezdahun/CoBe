@@ -54,7 +54,7 @@ def receive_new_frame(data_dict):
         if otsettings.mode == "cobe":
             # using PModule input convention
             list_to_write = [[key, value[0], value[1]] for key, value in rigid_bodies.items()]
-            generate_pred_json(list_to_write, with_explicit_IDs=True)
+            generate_pred_json(list_to_write, with_explicit_ids=True)
 
         elif otsettings.mode == "abm":
             # using PyGame ABM input convention
