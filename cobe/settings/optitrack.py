@@ -8,6 +8,9 @@ server_address = '192.168.0.105'  # the address of the Optitrack computer
 x_rescale = 3.5
 y_rescale = 3.5
 
+# max number of detected objects
+max_objects = 10
+
 # optitrack related settings
 # decide if we use optitrack client for calculating agent coordinates, etc.
 use_optitrack_client = True

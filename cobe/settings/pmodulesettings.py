@@ -56,7 +56,7 @@ predator_target_folder = root_folder
 
 # default values
 sim_dt = 0.02
-batch_size = int(os.environ.get("PM_BATCH_SIZE", 8))           # thymios 1, stick - 6-8
+batch_size = int(os.environ.get("PM_BATCH_SIZE", 7))           # thymios 2, stick - 8
 center_pull_radius = float(os.environ.get("PM_CENTER_PULL_RADIUS", 17))  # thymios 17, stick - 20
 num_prey = 50  #100
 repulsion_range = 1

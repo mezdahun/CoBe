@@ -86,12 +86,15 @@ def receive_rigid_body_frame(new_id, position, rotation):
     y = y / y_rescale * max_abs_coord
 
     # update rigid bodies global data that will be only written with every frame to the file
-    if otsettings.mode == "cobe":
-        rigid_bodies[new_id] = [x, y]
-    elif otsettings.mode == "abm":
-        rigid_bodies[new_id] = [x, y, rotation]
+    if new_id < otsettings.max_objects:
+        if otsettings.mode == "cobe":
+            rigid_bodies[new_id] = [x, y]
+        elif otsettings.mode == "abm":
+            rigid_bodies[new_id] = [x, y, rotation]
+        else:
+            raise ValueError("Mode not supported: ", otsettings.mode)
     else:
-        raise ValueError("Mode not supported: ", otsettings.mode)
+        print("Rigid body id too high: ", new_id)
 
 
 def add_lists(totals, totals_tmp):
